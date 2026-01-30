@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import {
   Select,
@@ -18,59 +19,247 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { Plus, X, ArrowRightLeft, Loader2 } from "lucide-react";
+
+interface Team {
+  id: number;
+  name: string;
+  slug: string;
+  abbreviation: string;
+}
+
+interface PlayerAsset {
+  type: "player";
+  id: number;
+  contractId: number;
+  name: string;
+  position: string | null;
+  nflTeam: string | null;
+  salary: string;
+  label: string;
+}
+
+interface PickAsset {
+  type: "draft_pick";
+  id: number;
+  year: number;
+  round: number;
+  pickNumber: number | null;
+  originalTeamAbbr: string;
+  label: string;
+}
+
+type Asset = PlayerAsset | PickAsset;
+
+interface TeamAssets {
+  teamId: number;
+  teamName: string;
+  players: PlayerAsset[];
+  picks: PickAsset[];
+}
+
+interface TradeParticipant {
+  teamId: string;
+  teamSlug: string;
+  teamName: string;
+  assets: TeamAssets | null;
+  selectedAssets: Asset[];
+  receiving: Asset[]; // Populated after asset assignment
+}
 
 interface TradeFormProps {
-  teams: { id: number; name: string; slug: string }[];
+  teams: Team[];
+  currentSeason: number;
 }
 
-interface TradeAssetInput {
-  description: string;
-  fromTeamId: string;
-  toTeamId: string;
-}
-
-export function TradeForm({ teams }: TradeFormProps) {
+export function TradeForm({ teams, currentSeason }: TradeFormProps) {
   const [tradeDate, setTradeDate] = useState(
     new Date().toISOString().split("T")[0]
   );
-  const [season, setSeason] = useState("2025");
+  const [season, setSeason] = useState(currentSeason.toString());
   const [notes, setNotes] = useState("");
-  const [assets, setAssets] = useState<TradeAssetInput[]>([
-    { description: "", fromTeamId: "", toTeamId: "" },
-    { description: "", fromTeamId: "", toTeamId: "" },
-  ]);
   const [loading, setLoading] = useState(false);
+  const [participants, setParticipants] = useState<TradeParticipant[]>([
+    { teamId: "", teamSlug: "", teamName: "", assets: null, selectedAssets: [], receiving: [] },
+    { teamId: "", teamSlug: "", teamName: "", assets: null, selectedAssets: [], receiving: [] },
+  ]);
   const router = useRouter();
 
-  const addAsset = () => {
-    setAssets([...assets, { description: "", fromTeamId: "", toTeamId: "" }]);
+  // Season options (5 years back to 2 years forward)
+  const seasonOptions = Array.from(
+    { length: 8 },
+    (_, i) => currentSeason - 5 + i
+  );
+
+  // Fetch team assets when team is selected
+  const fetchTeamAssets = useCallback(async (teamSlug: string): Promise<TeamAssets | null> => {
+    try {
+      const res = await fetch(`/api/teams/${teamSlug}/tradeable-assets`);
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    }
+  }, []);
+
+  const handleTeamChange = async (index: number, teamId: string) => {
+    const team = teams.find((t) => t.id.toString() === teamId);
+    if (!team) return;
+
+    // Check if team is already in the trade
+    if (participants.some((p, i) => i !== index && p.teamId === teamId)) {
+      toast.error("This team is already in the trade");
+      return;
+    }
+
+    const updated = [...participants];
+    updated[index] = {
+      teamId,
+      teamSlug: team.slug,
+      teamName: team.name,
+      assets: null,
+      selectedAssets: [],
+      receiving: [],
+    };
+    setParticipants(updated);
+
+    // Fetch assets
+    const assets = await fetchTeamAssets(team.slug);
+    if (assets) {
+      const newUpdated = [...participants];
+      newUpdated[index] = { ...updated[index], assets };
+      setParticipants(newUpdated);
+    }
   };
 
-  const removeAsset = (index: number) => {
-    setAssets(assets.filter((_, i) => i !== index));
+  const toggleAsset = (participantIndex: number, asset: Asset) => {
+    const updated = [...participants];
+    const participant = updated[participantIndex];
+    const isSelected = participant.selectedAssets.some(
+      (a) => a.type === asset.type && a.id === asset.id
+    );
+
+    if (isSelected) {
+      participant.selectedAssets = participant.selectedAssets.filter(
+        (a) => !(a.type === asset.type && a.id === asset.id)
+      );
+    } else {
+      participant.selectedAssets = [...participant.selectedAssets, asset];
+    }
+
+    setParticipants(updated);
   };
 
-  const updateAsset = (
-    index: number,
-    field: keyof TradeAssetInput,
-    value: string
+  const addTeam = () => {
+    if (participants.length >= 4) {
+      toast.error("Maximum 4 teams in a trade");
+      return;
+    }
+    setParticipants([
+      ...participants,
+      { teamId: "", teamSlug: "", teamName: "", assets: null, selectedAssets: [], receiving: [] },
+    ]);
+  };
+
+  const removeTeam = (index: number) => {
+    if (participants.length <= 2) {
+      toast.error("Minimum 2 teams required");
+      return;
+    }
+    setParticipants(participants.filter((_, i) => i !== index));
+  };
+
+  // For 2-team trades, assets go to the other team automatically
+  // For 3+ team trades, we need destination assignment
+  const [assetDestinations, setAssetDestinations] = useState<
+    Map<string, string>
+  >(new Map());
+
+  const getAssetKey = (asset: Asset, fromTeamId: string) =>
+    `${asset.type}-${asset.id}-${fromTeamId}`;
+
+  const setAssetDestination = (
+    asset: Asset,
+    fromTeamId: string,
+    toTeamId: string
   ) => {
-    const updated = [...assets];
-    updated[index] = { ...updated[index], [field]: value };
-    setAssets(updated);
+    const key = getAssetKey(asset, fromTeamId);
+    const newMap = new Map(assetDestinations);
+    newMap.set(key, toTeamId);
+    setAssetDestinations(newMap);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    const validAssets = assets.filter(
-      (a) => a.description && a.fromTeamId && a.toTeamId
-    );
+    // Validate
+    const activeParticipants = participants.filter((p) => p.teamId);
+    if (activeParticipants.length < 2) {
+      toast.error("At least 2 teams required");
+      setLoading(false);
+      return;
+    }
 
-    if (validAssets.length === 0) {
-      toast.error("At least one trade asset is required");
+    const allAssets: {
+      assetType: "player" | "draft_pick";
+      playerId?: number;
+      contractId?: number;
+      draftPickId?: number;
+      fromTeamId: number;
+      toTeamId: number;
+      description: string;
+    }[] = [];
+
+    // Build assets with destinations
+    for (const participant of activeParticipants) {
+      for (const asset of participant.selectedAssets) {
+        let toTeamId: number;
+
+        if (activeParticipants.length === 2) {
+          // 2-team trade: assets go to the other team
+          toTeamId = parseInt(
+            activeParticipants.find((p) => p.teamId !== participant.teamId)!
+              .teamId
+          );
+        } else {
+          // Multi-team trade: check destination map
+          const key = getAssetKey(asset, participant.teamId);
+          const destId = assetDestinations.get(key);
+          if (!destId) {
+            toast.error(`Please select destination for ${asset.label}`);
+            setLoading(false);
+            return;
+          }
+          toTeamId = parseInt(destId);
+        }
+
+        if (asset.type === "player") {
+          allAssets.push({
+            assetType: "player",
+            playerId: asset.id,
+            contractId: asset.contractId,
+            fromTeamId: parseInt(participant.teamId),
+            toTeamId,
+            description: asset.name,
+          });
+        } else {
+          allAssets.push({
+            assetType: "draft_pick",
+            draftPickId: asset.id,
+            fromTeamId: parseInt(participant.teamId),
+            toTeamId,
+            description: asset.label,
+          });
+        }
+      }
+    }
+
+    if (allAssets.length === 0) {
+      toast.error("At least one asset must be traded");
       setLoading(false);
       return;
     }
@@ -83,11 +272,8 @@ export function TradeForm({ teams }: TradeFormProps) {
           tradeDate,
           season: Number(season),
           notes,
-          assets: validAssets.map((a) => ({
-            description: a.description,
-            fromTeamId: Number(a.fromTeamId),
-            toTeamId: Number(a.toTeamId),
-          })),
+          assets: allAssets,
+          executeTransfer: true, // New flag to actually move assets
         }),
       });
 
@@ -97,7 +283,7 @@ export function TradeForm({ teams }: TradeFormProps) {
         return;
       }
 
-      toast.success("Trade recorded successfully");
+      toast.success("Trade recorded and executed successfully!");
       router.push("/trades");
       router.refresh();
     } catch {
@@ -107,8 +293,11 @@ export function TradeForm({ teams }: TradeFormProps) {
     }
   };
 
+  const isMultiTeam = participants.filter((p) => p.teamId).length > 2;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {/* Trade Details */}
       <Card>
         <CardHeader>
           <CardTitle>Trade Details</CardTitle>
@@ -130,7 +319,7 @@ export function TradeForm({ teams }: TradeFormProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {[2021, 2022, 2023, 2024, 2025].map((y) => (
+                {seasonOptions.map((y) => (
                   <SelectItem key={y} value={y.toString()}>
                     {y}
                   </SelectItem>
@@ -139,96 +328,297 @@ export function TradeForm({ teams }: TradeFormProps) {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label>Notes</Label>
+            <Label>Notes (optional)</Label>
             <Input
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder="Optional notes"
+              placeholder="Trade notes..."
             />
           </div>
         </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle>Assets</CardTitle>
-            <Button type="button" variant="outline" size="sm" onClick={addAsset}>
-              + Add Asset
+      {/* Teams */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Teams in Trade</h2>
+          {participants.length < 4 && (
+            <Button type="button" variant="outline" size="sm" onClick={addTeam}>
+              <Plus className="h-4 w-4 mr-1" />
+              Add Team
             </Button>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {assets.map((asset, index) => (
-            <div
-              key={index}
-              className="grid gap-3 rounded-md border p-3 sm:grid-cols-4"
-            >
-              <div className="space-y-1">
-                <Label className="text-xs">Player / Pick</Label>
-                <Input
-                  value={asset.description}
-                  onChange={(e) =>
-                    updateAsset(index, "description", e.target.value)
-                  }
-                  placeholder="e.g. Patrick Mahomes or 2026 1st"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">From Team</Label>
+          )}
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          {participants.map((participant, index) => (
+            <Card key={index} className="relative">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base">Team {index + 1}</CardTitle>
+                  {participants.length > 2 && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => removeTeam(index)}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  )}
+                </div>
                 <Select
-                  value={asset.fromTeamId}
-                  onValueChange={(v) => updateAsset(index, "fromTeamId", v)}
+                  value={participant.teamId}
+                  onValueChange={(v) => handleTeamChange(index, v)}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder="Select" />
+                    <SelectValue placeholder="Select team..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {teams.map((t) => (
-                      <SelectItem key={t.id} value={t.id.toString()}>
-                        {t.name}
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id.toString()}>
+                        {team.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              </div>
-              <div className="space-y-1">
-                <Label className="text-xs">To Team</Label>
-                <Select
-                  value={asset.toTeamId}
-                  onValueChange={(v) => updateAsset(index, "toTeamId", v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams.map((t) => (
-                      <SelectItem key={t.id} value={t.id.toString()}>
-                        {t.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex items-end">
-                {assets.length > 1 && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => removeAsset(index)}
-                  >
-                    Remove
-                  </Button>
-                )}
-              </div>
-            </div>
+              </CardHeader>
+
+              {participant.teamId && (
+                <CardContent className="space-y-4">
+                  {!participant.assets ? (
+                    <div className="flex items-center justify-center py-4 text-muted-foreground">
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Loading assets...
+                    </div>
+                  ) : (
+                    <>
+                      {/* Players */}
+                      {participant.assets.players.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                            Players
+                          </Label>
+                          <div className="space-y-1 max-h-48 overflow-y-auto">
+                            {participant.assets.players.map((player) => {
+                              const isSelected = participant.selectedAssets.some(
+                                (a) => a.type === "player" && a.id === player.id
+                              );
+                              return (
+                                <div
+                                  key={player.id}
+                                  className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                                    isSelected
+                                      ? "bg-primary/10 border-primary"
+                                      : "hover:bg-muted"
+                                  }`}
+                                  onClick={() => toggleAsset(index, player)}
+                                >
+                                  <Checkbox checked={isSelected} />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="font-medium text-sm truncate">
+                                      {player.name}
+                                    </p>
+                                    <p className="text-xs text-muted-foreground">
+                                      {player.position} · ${Number(player.salary).toFixed(0)}
+                                    </p>
+                                  </div>
+                                  {isSelected && isMultiTeam && (
+                                    <Select
+                                      value={
+                                        assetDestinations.get(
+                                          getAssetKey(player, participant.teamId)
+                                        ) || ""
+                                      }
+                                      onValueChange={(v) =>
+                                        setAssetDestination(
+                                          player,
+                                          participant.teamId,
+                                          v
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger
+                                        className="w-28 h-7 text-xs"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <SelectValue placeholder="To..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {participants
+                                          .filter(
+                                            (p) =>
+                                              p.teamId &&
+                                              p.teamId !== participant.teamId
+                                          )
+                                          .map((p) => (
+                                            <SelectItem key={p.teamId} value={p.teamId}>
+                                              {p.teamName}
+                                            </SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Draft Picks */}
+                      {participant.assets.picks.length > 0 && (
+                        <div className="space-y-2">
+                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
+                            Draft Picks
+                          </Label>
+                          <div className="space-y-1 max-h-36 overflow-y-auto">
+                            {participant.assets.picks.map((pick) => {
+                              const isSelected = participant.selectedAssets.some(
+                                (a) => a.type === "draft_pick" && a.id === pick.id
+                              );
+                              return (
+                                <div
+                                  key={pick.id}
+                                  className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                                    isSelected
+                                      ? "bg-primary/10 border-primary"
+                                      : "hover:bg-muted"
+                                  }`}
+                                  onClick={() => toggleAsset(index, pick)}
+                                >
+                                  <Checkbox checked={isSelected} />
+                                  <span className="text-sm flex-1">{pick.label}</span>
+                                  {isSelected && isMultiTeam && (
+                                    <Select
+                                      value={
+                                        assetDestinations.get(
+                                          getAssetKey(pick, participant.teamId)
+                                        ) || ""
+                                      }
+                                      onValueChange={(v) =>
+                                        setAssetDestination(
+                                          pick,
+                                          participant.teamId,
+                                          v
+                                        )
+                                      }
+                                    >
+                                      <SelectTrigger
+                                        className="w-28 h-7 text-xs"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <SelectValue placeholder="To..." />
+                                      </SelectTrigger>
+                                      <SelectContent>
+                                        {participants
+                                          .filter(
+                                            (p) =>
+                                              p.teamId &&
+                                              p.teamId !== participant.teamId
+                                          )
+                                          .map((p) => (
+                                            <SelectItem key={p.teamId} value={p.teamId}>
+                                              {p.teamName}
+                                            </SelectItem>
+                                          ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {participant.assets.players.length === 0 &&
+                        participant.assets.picks.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            No tradeable assets
+                          </p>
+                        )}
+
+                      {/* Selected summary */}
+                      {participant.selectedAssets.length > 0 && (
+                        <div className="pt-2 border-t">
+                          <p className="text-xs text-muted-foreground mb-1">
+                            Trading away:
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {participant.selectedAssets.map((asset) => (
+                              <Badge
+                                key={`${asset.type}-${asset.id}`}
+                                variant="secondary"
+                                className="text-xs"
+                              >
+                                {asset.type === "player" ? asset.name : asset.label}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </CardContent>
+              )}
+            </Card>
           ))}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
+
+      {/* Trade Summary for 2-team trades */}
+      {!isMultiTeam &&
+        participants[0]?.selectedAssets.length > 0 &&
+        participants[1]?.selectedAssets.length > 0 && (
+          <Card className="bg-muted/50">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4" />
+                Trade Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <p className="font-medium text-sm mb-2">
+                    {participants[0].teamName} receives:
+                  </p>
+                  <div className="space-y-1">
+                    {participants[1].selectedAssets.map((asset) => (
+                      <p key={`${asset.type}-${asset.id}`} className="text-sm">
+                        • {asset.type === "player" ? asset.name : asset.label}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="font-medium text-sm mb-2">
+                    {participants[1].teamName} receives:
+                  </p>
+                  <div className="space-y-1">
+                    {participants[0].selectedAssets.map((asset) => (
+                      <p key={`${asset.type}-${asset.id}`} className="text-sm">
+                        • {asset.type === "player" ? asset.name : asset.label}
+                      </p>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
       <Button type="submit" size="lg" disabled={loading}>
-        {loading ? "Recording..." : "Record Trade"}
+        {loading ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Recording Trade...
+          </>
+        ) : (
+          "Record Trade"
+        )}
       </Button>
     </form>
   );
