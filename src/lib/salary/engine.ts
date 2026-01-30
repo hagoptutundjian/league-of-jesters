@@ -29,7 +29,11 @@ export function isLoyaltyBumpYear(yearAcquired: number, targetYear: number): boo
  * Year 5 loyalty bump: Players kept for 5 years get an additional $5 added
  * ON TOP of the normal 15% escalation in year 5.
  *
- * @param baseSalary - The salary entered by the user
+ * IMPORTANT: When a salary is manually entered for a specific year (salaryYear),
+ * we assume the user has ALREADY factored in any bump that applies to that year.
+ * We only apply bumps for FUTURE years when escalating.
+ *
+ * @param baseSalary - The salary entered by the user (already includes any bump for salaryYear)
  * @param yearAcquired - Year the player was originally acquired (for loyalty bump)
  * @param targetYear - The year to calculate salary for
  * @param rate - Escalation rate (default 15%)
@@ -42,13 +46,10 @@ export function calculateSalary(
   rate: number = ESCALATION_RATE,
   salaryYear: number = DEFAULT_SALARY_YEAR
 ): number {
-  // For the salary year, just return the base salary (plus bump if applicable)
+  // For the salary year, just return the base salary as entered
+  // The user has already accounted for any bump in their entered amount
   if (targetYear === salaryYear) {
-    const salary = Math.ceil(baseSalary);
-    if (isLoyaltyBumpYear(yearAcquired, targetYear)) {
-      return salary + LOYALTY_BUMP_AMOUNT;
-    }
-    return salary;
+    return Math.ceil(baseSalary);
   }
 
   // For years before the salary year, return 0 (shouldn't happen in practice)
@@ -61,17 +62,15 @@ export function calculateSalary(
 
   let salary = baseSalary;
 
-  // Check if salaryYear itself is a bump year (need to add bump before escalating)
-  if (isLoyaltyBumpYear(yearAcquired, salaryYear)) {
-    salary += LOYALTY_BUMP_AMOUNT;
-  }
+  // Note: We do NOT add the bump for salaryYear here because the user's
+  // entered salary already reflects any bump that applies to that year
 
   for (let y = 1; y <= yearsFromBase; y++) {
     const currentYear = salaryYear + y;
     salary = salary * (1 + rate);
     // Round up after each year's escalation
     salary = Math.ceil(salary);
-    // Check if this year is year 5 of the contract
+    // Check if this year is year 5 of the contract (only for future years)
     if (isLoyaltyBumpYear(yearAcquired, currentYear)) {
       salary += LOYALTY_BUMP_AMOUNT;
     }
