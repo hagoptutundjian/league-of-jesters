@@ -305,6 +305,30 @@ export const droppedPlayerHistory = pgTable(
   ]
 );
 
+export const rookieDraftHistory = pgTable(
+  "rookie_draft_history",
+  {
+    id: serial("id").primaryKey(),
+    year: integer("year").notNull(),
+    round: integer("round").notNull(),
+    pick: integer("pick").notNull(), // Pick within the round (1-12)
+    overallPick: text("overall_pick").notNull(), // e.g., "1.01", "2.05"
+    teamId: integer("team_id")
+      .notNull()
+      .references(() => teams.id),
+    playerName: text("player_name").notNull(),
+    playerId: integer("player_id").references(() => players.id), // Optional link to player record
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("uq_rookie_draft_pick").on(table.year, table.round, table.pick),
+    index("idx_rookie_draft_year").on(table.year),
+    index("idx_rookie_draft_team").on(table.teamId),
+  ]
+);
+
 // ============================================================
 // RELATIONS
 // ============================================================
@@ -409,3 +433,17 @@ export const transactionsRelations = relations(transactions, ({ one }) => ({
     references: [players.id],
   }),
 }));
+
+export const rookieDraftHistoryRelations = relations(
+  rookieDraftHistory,
+  ({ one }) => ({
+    team: one(teams, {
+      fields: [rookieDraftHistory.teamId],
+      references: [teams.id],
+    }),
+    player: one(players, {
+      fields: [rookieDraftHistory.playerId],
+      references: [players.id],
+    }),
+  })
+);

@@ -12,6 +12,7 @@ import { useState } from "react";
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/teams", label: "Teams" },
+  { href: "/rookie-draft", label: "Rookie Draft" },
   { href: "/trades", label: "Trades" },
   { href: "/players", label: "Players" },
 ];
