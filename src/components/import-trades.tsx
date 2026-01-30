@@ -67,17 +67,18 @@ export function ImportTrades() {
           Import History
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className="max-w-3xl max-h-[90vh] flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>Import Historical Trades</DialogTitle>
           <DialogDescription>
             Paste your trade history data. Each trade should have two rows (one per team).
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="text-sm text-muted-foreground">
-            <p className="font-medium mb-1">Expected format (tab-separated):</p>
-            <pre className="bg-muted p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap">
+        <div className="flex-1 overflow-y-auto space-y-4 pr-2">
+          <details className="text-sm text-muted-foreground">
+            <summary className="cursor-pointer font-medium mb-1">Show format instructions</summary>
+            <div className="mt-2 space-y-2">
+              <pre className="bg-muted p-2 rounded text-xs overflow-x-auto whitespace-pre-wrap">
 {`Date	Team	Players/Picks Sent	Players/Picks Received	Season
 9/21/2020	King Hags	"1. Kyle Pitts
 2. 2022 1st round pick"	"1. Travis Kelce
@@ -85,26 +86,28 @@ export function ImportTrades() {
 	Cobra	"1. Travis Kelce
 2. 2022 2nd round pick"	"1. Kyle Pitts
 2. 2022 1st round pick"	2021`}
-            </pre>
-          </div>
-          <div className="text-sm text-muted-foreground">
-            <p className="font-medium mb-1">Notes:</p>
-            <ul className="list-disc list-inside text-xs space-y-1">
-              <li>Date only needs to appear on the first row of each trade</li>
-              <li>Team names should match your team names or abbreviations</li>
-              <li>Players/picks can be numbered (1. 2. 3.) or plain text</li>
-              <li>This import is for historical record only - it will NOT move players/picks</li>
-            </ul>
-          </div>
+              </pre>
+              <ul className="list-disc list-inside text-xs space-y-1">
+                <li>Date only needs to appear on the first row of each trade</li>
+                <li>Team names should match your team names or abbreviations</li>
+                <li>Players/picks can be numbered (1. 2. 3.) or plain text</li>
+                <li>This import is for historical record only - it will NOT move players/picks</li>
+              </ul>
+            </div>
+          </details>
           <Textarea
             placeholder="Paste your trade data here..."
             value={data}
             onChange={(e) => setData(e.target.value)}
-            rows={12}
-            className="font-mono text-sm"
+            className="font-mono text-sm min-h-[300px]"
           />
+          {data && (
+            <p className="text-xs text-muted-foreground">
+              {data.split('\n').filter(l => l.trim()).length} lines pasted
+            </p>
+          )}
         </div>
-        <DialogFooter>
+        <DialogFooter className="flex-shrink-0 border-t pt-4">
           <Button variant="outline" onClick={() => setOpen(false)}>
             Cancel
           </Button>
