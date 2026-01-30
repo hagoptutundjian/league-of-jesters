@@ -138,7 +138,7 @@ export default async function RookieDraftPage() {
                 <p className="text-xs text-muted-foreground">
                   {picksByTeam.find(
                     (t) => t.totalPicks === Math.max(...picksByTeam.map((t) => t.totalPicks))
-                  )?.abbreviation || ""}
+                  )?.name || ""}
                 </p>
               </>
             ) : (
