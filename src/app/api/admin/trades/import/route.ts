@@ -4,19 +4,16 @@ import { trades, tradeAssets, tradeParticipants, teams } from "@/lib/db/schema";
 import { isCommissioner, getUser } from "@/lib/auth/server";
 import { eq } from "drizzle-orm";
 
-interface ParsedTradeRow {
-  date: string;
-  teamName: string;
+interface TeamTradeData {
+  name: string;
   sent: string[];
   received: string[];
-  season: number;
 }
 
 interface ParsedTrade {
   date: string;
   season: number;
-  team1: { name: string; sent: string[]; received: string[] };
-  team2: { name: string; sent: string[]; received: string[] };
+  teams: TeamTradeData[];
 }
 
 function parseAssetList(assetString: string): string[] {
@@ -33,7 +30,7 @@ function parseImportData(data: string): ParsedTrade[] {
   const lines = data.trim().split("\n");
   const trades: ParsedTrade[] = [];
 
-  let currentTrade: Partial<ParsedTrade> | null = null;
+  let currentTrade: ParsedTrade | null = null;
   let currentDate = "";
   let currentSeason = 0;
 
@@ -64,9 +61,9 @@ function parseImportData(data: string): ParsedTrade[] {
 
     // If we have a date, this is the first row of a new trade
     if (date && date.trim()) {
-      // Save previous trade if exists
-      if (currentTrade && currentTrade.team1 && currentTrade.team2) {
-        trades.push(currentTrade as ParsedTrade);
+      // Save previous trade if exists and has at least 2 teams
+      if (currentTrade && currentTrade.teams.length >= 2) {
+        trades.push(currentTrade);
       }
 
       currentDate = date.trim();
@@ -75,23 +72,25 @@ function parseImportData(data: string): ParsedTrade[] {
       currentTrade = {
         date: currentDate,
         season: currentSeason,
-        team1: {
-          name: teamName?.trim() || "",
-          sent: parseAssetList(sent || ""),
-          received: parseAssetList(received || ""),
-        },
+        teams: [
+          {
+            name: teamName?.trim() || "",
+            sent: parseAssetList(sent || ""),
+            received: parseAssetList(received || ""),
+          },
+        ],
       };
     } else if (currentTrade && teamName?.trim()) {
-      // This is the second row of the trade
+      // This is an additional row of the same trade (2nd, 3rd, 4th team, etc.)
       const rowSeason = season?.trim() ? parseInt(season.trim()) : currentSeason;
 
-      currentTrade.team2 = {
+      currentTrade.teams.push({
         name: teamName.trim(),
         sent: parseAssetList(sent || ""),
         received: parseAssetList(received || ""),
-      };
+      });
 
-      // Use the season from either row
+      // Use the season from any row that has it
       if (rowSeason && !isNaN(rowSeason)) {
         currentTrade.season = rowSeason;
       }
@@ -99,8 +98,8 @@ function parseImportData(data: string): ParsedTrade[] {
   }
 
   // Don't forget the last trade
-  if (currentTrade && currentTrade.team1 && currentTrade.team2) {
-    trades.push(currentTrade as ParsedTrade);
+  if (currentTrade && currentTrade.teams.length >= 2) {
+    trades.push(currentTrade);
   }
 
   return trades;
@@ -158,16 +157,21 @@ export async function POST(request: Request) {
     const errors: string[] = [];
 
     for (const trade of parsedTrades) {
-      const team1 = findTeam(trade.team1.name);
-      const team2 = findTeam(trade.team2.name);
+      // Look up all teams in this trade
+      const resolvedTeams: { dbTeam: typeof allTeams[0]; data: TeamTradeData }[] = [];
+      let hasError = false;
 
-      if (!team1) {
-        errors.push(`Team not found: ${trade.team1.name}`);
-        skipped++;
-        continue;
+      for (const teamData of trade.teams) {
+        const dbTeam = findTeam(teamData.name);
+        if (!dbTeam) {
+          errors.push(`Team not found: ${teamData.name}`);
+          hasError = true;
+          break;
+        }
+        resolvedTeams.push({ dbTeam, data: teamData });
       }
-      if (!team2) {
-        errors.push(`Team not found: ${trade.team2.name}`);
+
+      if (hasError) {
         skipped++;
         continue;
       }
@@ -180,39 +184,91 @@ export async function POST(request: Request) {
           .values({
             tradeDate,
             season: trade.season,
-            notes: "Imported from historical data",
+            notes: resolvedTeams.length > 2 ? `${resolvedTeams.length}-team trade (imported)` : "Imported from historical data",
             recordedBy: user.id,
           })
           .returning({ id: trades.id });
 
         const tradeId = newTrade.id;
 
-        // Insert participants
-        await db.insert(tradeParticipants).values([
-          { tradeId, teamId: team1.id },
-          { tradeId, teamId: team2.id },
-        ]);
-
-        // Insert assets - what team1 sent goes to team2
-        for (const asset of trade.team1.sent) {
-          await db.insert(tradeAssets).values({
+        // Insert all participants
+        for (const { dbTeam } of resolvedTeams) {
+          await db.insert(tradeParticipants).values({
             tradeId,
-            assetType: asset.toLowerCase().includes("round pick") ? "draft_pick" : "player",
-            fromTeamId: team1.id,
-            toTeamId: team2.id,
-            description: asset,
+            teamId: dbTeam.id,
           });
         }
 
-        // Insert assets - what team2 sent goes to team1
-        for (const asset of trade.team2.sent) {
-          await db.insert(tradeAssets).values({
-            tradeId,
-            assetType: asset.toLowerCase().includes("round pick") ? "draft_pick" : "player",
-            fromTeamId: team2.id,
-            toTeamId: team1.id,
-            description: asset,
-          });
+        // For each team, what they sent = assets going OUT from them
+        // What they received = assets coming IN to them
+        // We need to figure out who sent what to whom
+
+        // For 2-team trades: Team A's sent goes to Team B, Team B's sent goes to Team A
+        // For 3+ team trades: Use the "received" column to determine destinations
+
+        if (resolvedTeams.length === 2) {
+          // Simple 2-team trade
+          const [team1, team2] = resolvedTeams;
+
+          // What team1 sent goes to team2
+          for (const asset of team1.data.sent) {
+            await db.insert(tradeAssets).values({
+              tradeId,
+              assetType: asset.toLowerCase().includes("round pick") ? "draft_pick" : "player",
+              fromTeamId: team1.dbTeam.id,
+              toTeamId: team2.dbTeam.id,
+              description: asset,
+            });
+          }
+
+          // What team2 sent goes to team1
+          for (const asset of team2.data.sent) {
+            await db.insert(tradeAssets).values({
+              tradeId,
+              assetType: asset.toLowerCase().includes("round pick") ? "draft_pick" : "player",
+              fromTeamId: team2.dbTeam.id,
+              toTeamId: team1.dbTeam.id,
+              description: asset,
+            });
+          }
+        } else {
+          // Multi-team trade: Use "received" to determine who gets what
+          // Build a map of what each team receives
+          for (const receiver of resolvedTeams) {
+            for (const assetDesc of receiver.data.received) {
+              // Find which team sent this asset
+              let senderTeam: typeof resolvedTeams[0] | null = null;
+              for (const sender of resolvedTeams) {
+                if (sender.dbTeam.id === receiver.dbTeam.id) continue;
+                if (sender.data.sent.some(s => s === assetDesc)) {
+                  senderTeam = sender;
+                  break;
+                }
+              }
+
+              if (senderTeam) {
+                await db.insert(tradeAssets).values({
+                  tradeId,
+                  assetType: assetDesc.toLowerCase().includes("round pick") ? "draft_pick" : "player",
+                  fromTeamId: senderTeam.dbTeam.id,
+                  toTeamId: receiver.dbTeam.id,
+                  description: assetDesc,
+                });
+              } else {
+                // Couldn't find sender, just record with first non-receiver team as sender
+                const fallbackSender = resolvedTeams.find(t => t.dbTeam.id !== receiver.dbTeam.id);
+                if (fallbackSender) {
+                  await db.insert(tradeAssets).values({
+                    tradeId,
+                    assetType: assetDesc.toLowerCase().includes("round pick") ? "draft_pick" : "player",
+                    fromTeamId: fallbackSender.dbTeam.id,
+                    toTeamId: receiver.dbTeam.id,
+                    description: assetDesc,
+                  });
+                }
+              }
+            }
+          }
         }
 
         imported++;
