@@ -20,6 +20,11 @@ export function ImportTrades() {
   const [open, setOpen] = useState(false);
   const [importing, setImporting] = useState(false);
   const [data, setData] = useState("");
+  const [importResult, setImportResult] = useState<{
+    imported: number;
+    skipped: number;
+    errors: string[];
+  } | null>(null);
   const router = useRouter();
 
   const handleImport = async () => {
@@ -29,6 +34,7 @@ export function ImportTrades() {
     }
 
     setImporting(true);
+    setImportResult(null);
     try {
       const response = await fetch("/api/admin/trades/import", {
         method: "POST",
@@ -42,15 +48,25 @@ export function ImportTrades() {
         throw new Error(result.error || "Import failed");
       }
 
-      toast.success(`Imported ${result.imported} trades`);
-      if (result.skipped > 0) {
-        toast.info(`Skipped ${result.skipped} trades`);
+      setImportResult({
+        imported: result.imported,
+        skipped: result.skipped,
+        errors: result.errors || [],
+      });
+
+      if (result.imported > 0) {
+        toast.success(`Imported ${result.imported} trades`);
       }
-      if (result.errors && result.errors.length > 0) {
-        console.log("Import errors:", result.errors);
+      if (result.skipped > 0 && result.errors?.length > 0) {
+        toast.error(`Skipped ${result.skipped} trades - see errors below`);
       }
-      setOpen(false);
-      setData("");
+
+      // Only close if mostly successful
+      if (result.imported > 0 && result.skipped === 0) {
+        setOpen(false);
+        setData("");
+        setImportResult(null);
+      }
       router.refresh();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Import failed");
@@ -105,6 +121,30 @@ export function ImportTrades() {
             <p className="text-xs text-muted-foreground">
               {data.split('\n').filter(l => l.trim()).length} lines pasted
             </p>
+          )}
+          {importResult && (
+            <div className="space-y-2">
+              <div className="flex gap-4 text-sm">
+                <span className="text-green-600 dark:text-green-400">
+                  Imported: {importResult.imported}
+                </span>
+                <span className="text-red-600 dark:text-red-400">
+                  Skipped: {importResult.skipped}
+                </span>
+              </div>
+              {importResult.errors.length > 0 && (
+                <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 rounded p-3">
+                  <p className="text-sm font-medium text-red-800 dark:text-red-200 mb-2">
+                    Errors (first 10):
+                  </p>
+                  <ul className="text-xs text-red-700 dark:text-red-300 space-y-1 max-h-40 overflow-y-auto">
+                    {importResult.errors.map((err, i) => (
+                      <li key={i}>• {err}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
           )}
         </div>
         <DialogFooter className="flex-shrink-0 border-t pt-4">
