@@ -271,12 +271,13 @@ export default async function TeamDetailPage({ params }: PageProps) {
   }
 
   // Define consistent column widths for alignment across all tables (in pixels)
+  // Mobile-friendly: smaller widths on mobile
   const colPixels = {
-    player: 180,
-    yearAcq: 70,
-    year: 85,
-    status: 100,
-    actions: 90,
+    player: 120, // Smaller for mobile, CSS will handle overflow
+    yearAcq: 50,
+    year: 60,
+    status: 70,
+    actions: 60,
   };
 
   // Colgroup to enforce exact column widths across all tables
@@ -292,13 +293,13 @@ export default async function TeamDetailPage({ params }: PageProps) {
     </colgroup>
   );
 
-  // Column classes for styling (padding, alignment)
+  // Column classes for styling (padding, alignment) - responsive text sizes
   const colStyles = {
-    player: "text-left",
-    status: "text-right pl-4",
-    yearAcq: "text-center",
-    year: "text-right",
-    actions: "text-right",
+    player: "text-left text-xs md:text-lg",
+    status: "text-right pl-2 md:pl-4 text-xs md:text-lg",
+    yearAcq: "text-center text-xs md:text-lg",
+    year: "text-right text-xs md:text-lg",
+    actions: "text-right text-xs md:text-lg",
   };
 
   // Table class
@@ -317,56 +318,56 @@ export default async function TeamDetailPage({ params }: PageProps) {
   };
 
   return (
-    <div className="space-y-6 text-xl">
+    <div className="space-y-4 md:space-y-6 text-sm md:text-xl">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">
+          <h1 className="text-xl md:text-3xl font-bold tracking-tight">
             {currentTeam.name}
           </h1>
           {currentTeam.ownerName && (
-            <p className="text-muted-foreground">
+            <p className="text-sm md:text-base text-muted-foreground">
               Manager: {currentTeam.ownerName}
             </p>
           )}
         </div>
         {canEdit && (
-          <Badge variant="secondary">
+          <Badge variant="secondary" className="text-xs md:text-sm">
             {isCommissioner ? "Commissioner" : "Your Team"}
           </Badge>
         )}
       </div>
 
       {/* Cap Summary */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+      <div className="grid grid-cols-2 gap-2 md:gap-4 lg:grid-cols-4">
+        <Card className="p-2 md:p-0">
+          <CardHeader className="pb-1 md:pb-2 p-2 md:p-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
               Salary Cap
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${capSummary.salaryCap}</div>
+          <CardContent className="p-2 md:p-6 pt-0">
+            <div className="text-lg md:text-2xl font-bold">${capSummary.salaryCap}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className="p-2 md:p-0">
+          <CardHeader className="pb-1 md:pb-2 p-2 md:p-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
               Total Salary
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">${capSummary.totalSalary}</div>
+          <CardContent className="p-2 md:p-6 pt-0">
+            <div className="text-lg md:text-2xl font-bold">${capSummary.totalSalary}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className="p-2 md:p-0">
+          <CardHeader className="pb-1 md:pb-2 p-2 md:p-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
               Cap Space
             </CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-2 md:p-6 pt-0">
             <div
-              className={`text-2xl font-bold ${
+              className={`text-lg md:text-2xl font-bold ${
                 capSummary.capSpace >= 0 ? "text-green-600" : "text-destructive"
               }`}
             >
@@ -376,14 +377,14 @@ export default async function TeamDetailPage({ params }: PageProps) {
             </div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+        <Card className="p-2 md:p-0">
+          <CardHeader className="pb-1 md:pb-2 p-2 md:p-6">
+            <CardTitle className="text-xs md:text-sm font-medium text-muted-foreground">
               Roster
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
+          <CardContent className="p-2 md:p-6 pt-0">
+            <div className="text-lg md:text-2xl font-bold">
               {capSummary.rosterCount}/32
             </div>
             <p className="text-xs text-muted-foreground">
@@ -396,11 +397,11 @@ export default async function TeamDetailPage({ params }: PageProps) {
 
       {/* Multi-Year Cap Projection */}
       <Card>
-        <CardHeader className="pb-2">
-          <CardTitle className="text-lg font-extrabold tracking-tight">Salary Projection ({currentSeason}-{currentSeason + 2})</CardTitle>
+        <CardHeader className="pb-2 px-3 md:px-6">
+          <CardTitle className="text-sm md:text-lg font-extrabold tracking-tight">Salary Projection ({currentSeason}-{currentSeason + 2})</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+        <CardContent className="px-2 md:px-6">
+          <div className="overflow-x-auto -mx-2 md:mx-0">
             <Table className={tableClass}>
               <TableColgroup />
               <TableHeader>
@@ -408,7 +409,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                   <TableHead className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950`}></TableHead>
                   <TableHead className={colStyles.yearAcq}></TableHead>
                   {displayYears.map((year) => (
-                    <TableHead key={year} className={`${colStyles.year} text-lg`}>
+                    <TableHead key={year} className={colStyles.year}>
                       {year}
                     </TableHead>
                   ))}
@@ -418,10 +419,10 @@ export default async function TeamDetailPage({ params }: PageProps) {
               </TableHeader>
               <TableBody>
                 <TableRow>
-                  <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold text-lg`}>Cap</TableCell>
+                  <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold`}>Cap</TableCell>
                   <TableCell className={colStyles.yearAcq}></TableCell>
                   {displayYears.map((year) => (
-                    <TableCell key={year} className={`${colStyles.year} text-lg`}>
+                    <TableCell key={year} className={colStyles.year}>
                       ${CAP_BY_YEAR[year] ?? 250}
                     </TableCell>
                   ))}
@@ -429,7 +430,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                   {canEdit && <TableCell className={colStyles.actions}></TableCell>}
                 </TableRow>
                 <TableRow>
-                  <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold text-lg`}>Salary</TableCell>
+                  <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold`}>Salary</TableCell>
                   <TableCell className={colStyles.yearAcq}></TableCell>
                   {displayYears.map((year) => {
                     let total = 0;
@@ -452,7 +453,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                       }
                     }
                     return (
-                      <TableCell key={year} className={`${colStyles.year} text-lg`}>
+                      <TableCell key={year} className={colStyles.year}>
                         ${total}
                       </TableCell>
                     );
@@ -461,7 +462,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                   {canEdit && <TableCell className={colStyles.actions}></TableCell>}
                 </TableRow>
                 <TableRow>
-                  <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold text-lg`}>Space</TableCell>
+                  <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold`}>Space</TableCell>
                   <TableCell className={colStyles.yearAcq}></TableCell>
                   {displayYears.map((year) => {
                     const cap = CAP_BY_YEAR[year] ?? 250;
@@ -488,7 +489,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                     return (
                       <TableCell
                         key={year}
-                        className={`${colStyles.year} text-lg font-medium ${
+                        className={`${colStyles.year} font-medium ${
                           space >= 0 ? "" : "text-destructive"
                         }`}
                       >
@@ -510,11 +511,12 @@ export default async function TeamDetailPage({ params }: PageProps) {
         const colors = positionColors[group.position] || positionColors.QB;
         return (
         <Card key={group.position} className={`${colors.border} ${colors.bg}`}>
-          <CardHeader className="pb-2">
+          <CardHeader className="pb-2 px-3 md:px-6">
             <div className="flex items-center justify-between">
-              <CardTitle className={`text-lg font-extrabold tracking-tight flex items-center gap-2 ${colors.text}`}>
-                {getPositionName(group.position)}
-                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold ${colors.badge}`}>
+              <CardTitle className={`text-sm md:text-lg font-extrabold tracking-tight flex items-center gap-2 ${colors.text}`}>
+                <span className="hidden md:inline">{getPositionName(group.position)}</span>
+                <span className="md:hidden">{group.position}</span>
+                <span className={`inline-flex items-center rounded-full px-1.5 md:px-2.5 py-0.5 text-xs md:text-sm font-semibold ${colors.badge}`}>
                   {group.players.length}
                 </span>
               </CardTitle>
@@ -527,23 +529,23 @@ export default async function TeamDetailPage({ params }: PageProps) {
               )}
             </div>
           </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
+          <CardContent className="px-2 md:px-6">
+            <div className="overflow-x-auto -mx-2 md:mx-0">
               <Table className={tableClass}>
                 <TableColgroup />
                 <TableHeader>
                   <TableRow>
-                    <TableHead className={`${colStyles.player} sticky left-0 ${colors.cellBg} text-lg`}>
+                    <TableHead className={`${colStyles.player} sticky left-0 ${colors.cellBg}`}>
                       Player
                     </TableHead>
-                    <TableHead className={`${colStyles.yearAcq} text-lg`}>Year</TableHead>
+                    <TableHead className={colStyles.yearAcq}>Year</TableHead>
                     {displayYears.map((year) => (
-                      <TableHead key={year} className={`${colStyles.year} text-lg`}>
+                      <TableHead key={year} className={colStyles.year}>
                         {year}
                       </TableHead>
                     ))}
-                    <TableHead className={`${colStyles.status} text-lg`}>Status</TableHead>
-                    {canEdit && <TableHead className={`${colStyles.actions} text-lg`}>Actions</TableHead>}
+                    <TableHead className={colStyles.status}>Status</TableHead>
+                    {canEdit && <TableHead className={colStyles.actions}>Actions</TableHead>}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -553,10 +555,10 @@ export default async function TeamDetailPage({ params }: PageProps) {
                     const cellBgClass = statusRowClass || colors.cellBg;
                     return (
                     <TableRow key={contract.id} className={statusRowClass}>
-                      <TableCell className={`${colStyles.player} sticky left-0 ${cellBgClass} font-semibold text-lg truncate`}>
+                      <TableCell className={`${colStyles.player} sticky left-0 ${cellBgClass} font-semibold truncate max-w-[100px] md:max-w-none`}>
                         {contract.playerName}
                       </TableCell>
-                      <TableCell className={`${colStyles.yearAcq} text-lg ${cellBgClass}`}>
+                      <TableCell className={`${colStyles.yearAcq} ${cellBgClass}`}>
                         {contract.yearAcquired}
                       </TableCell>
                       {displayYears.map((year) => {
@@ -578,11 +580,11 @@ export default async function TeamDetailPage({ params }: PageProps) {
                         );
                         const isBumpYear = isLoyaltyBumpYear(contract.yearAcquired, year);
                         return (
-                          <TableCell key={year} className={`${colStyles.year} text-lg ${cellBgClass}`}>
+                          <TableCell key={year} className={`${colStyles.year} ${cellBgClass}`}>
                             {isBumpYear ? (
                               <span
                                 title={`Year 5 Loyalty Bump! Cap hit: $${capHit}`}
-                                className="inline-block px-1 rounded border-2 border-blue-700 bg-blue-100 dark:bg-blue-900/50 text-blue-900 dark:text-blue-100 font-bold"
+                                className="inline-block px-0.5 md:px-1 rounded border md:border-2 border-blue-700 bg-blue-100 dark:bg-blue-900/50 text-blue-900 dark:text-blue-100 font-bold text-xs md:text-base"
                               >
                                 ${salary}
                               </span>
@@ -594,7 +596,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                           </TableCell>
                         );
                       })}
-                      <TableCell className={`${colStyles.status} text-lg ${cellBgClass}`}>
+                      <TableCell className={`${colStyles.status} ${cellBgClass}`}>
                         {statusBadge(contract.rosterStatus)}
                       </TableCell>
                       {canEdit && (
@@ -614,7 +616,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                     <TableRow>
                       <TableCell
                         colSpan={4 + displayYears.length}
-                        className="text-center text-muted-foreground"
+                        className="text-center text-muted-foreground text-xs md:text-base"
                       >
                         No players
                       </TableCell>
@@ -633,33 +635,33 @@ export default async function TeamDetailPage({ params }: PageProps) {
 
       {/* Draft Picks */}
       <Card className="border-l-4 border-l-slate-500">
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 px-3 md:px-6">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-lg font-extrabold tracking-tight flex items-center gap-2 text-slate-700 dark:text-slate-400">
+            <CardTitle className="text-sm md:text-lg font-extrabold tracking-tight flex items-center gap-2 text-slate-700 dark:text-slate-400">
               Draft Picks
-              <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-sm font-semibold bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200">
+              <span className="inline-flex items-center rounded-full px-1.5 md:px-2.5 py-0.5 text-xs md:text-sm font-semibold bg-slate-100 text-slate-800 dark:bg-slate-900 dark:text-slate-200">
                 {teamDraftPicks.length}
               </span>
             </CardTitle>
           </div>
         </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
+        <CardContent className="px-2 md:px-6">
+          <div className="overflow-x-auto -mx-2 md:mx-0">
             <Table className={tableClass}>
               <TableColgroup />
               <TableHeader>
                 <TableRow>
-                  <TableHead className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 text-lg`}>
+                  <TableHead className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950`}>
                     Pick
                   </TableHead>
-                  <TableHead className={`${colStyles.yearAcq} text-lg`}>Via</TableHead>
+                  <TableHead className={colStyles.yearAcq}>Via</TableHead>
                   {displayYears.map((year) => (
-                    <TableHead key={year} className={`${colStyles.year} text-lg`}>
+                    <TableHead key={year} className={colStyles.year}>
                       {year}
                     </TableHead>
                   ))}
                   <TableHead className={colStyles.status}></TableHead>
-                  {canEdit && <TableHead className={`${colStyles.actions} text-lg`}>Actions</TableHead>}
+                  {canEdit && <TableHead className={colStyles.actions}>Actions</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -678,21 +680,22 @@ export default async function TeamDetailPage({ params }: PageProps) {
 
                   return (
                     <TableRow key={pick.id} className={rowColorClass}>
-                      <TableCell className={`${colStyles.player} sticky left-0 ${rowColorClass} font-semibold text-lg truncate`}>
-                        {pick.year} {getRoundLabel(pick.round)} Rd Pick
+                      <TableCell className={`${colStyles.player} sticky left-0 ${rowColorClass} font-semibold truncate max-w-[100px] md:max-w-none`}>
+                        <span className="hidden md:inline">{pick.year} {getRoundLabel(pick.round)} Rd Pick</span>
+                        <span className="md:hidden">{pick.year} R{pick.round}</span>
                       </TableCell>
-                      <TableCell className={`${colStyles.yearAcq} text-lg ${rowColorClass}`}>
+                      <TableCell className={`${colStyles.yearAcq} ${rowColorClass}`}>
                         {isOwnPick ? (
                           <span className="text-muted-foreground">Own</span>
                         ) : (
-                          <span className="text-muted-foreground">via {originalTeamName}</span>
+                          <span className="text-muted-foreground"><span className="hidden md:inline">via </span>{originalTeamName}</span>
                         )}
                       </TableCell>
                       {displayYears.map((year) => {
                         // Only show salary if this pick is for this year
                         const showSalary = pick.year === year;
                         return (
-                          <TableCell key={year} className={`${colStyles.year} text-lg ${rowColorClass}`}>
+                          <TableCell key={year} className={`${colStyles.year} ${rowColorClass}`}>
                             {showSalary ? (
                               <span>${salary}</span>
                             ) : (
@@ -720,7 +723,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                   <TableRow>
                     <TableCell
                       colSpan={3 + displayYears.length + (canEdit ? 1 : 0)}
-                      className="text-center text-muted-foreground"
+                      className="text-center text-muted-foreground text-xs md:text-base"
                     >
                       No picks
                     </TableCell>
