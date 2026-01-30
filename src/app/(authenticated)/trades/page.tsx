@@ -12,6 +12,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeleteTradeButton } from "@/components/delete-trade-button";
+import { ImportTrades } from "@/components/import-trades";
 import { ArrowRight, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -192,12 +193,15 @@ export default async function TradesPage() {
           </p>
         </div>
         {commissioner && (
-          <Button asChild>
-            <Link href="/trades/new">
-              <Plus className="h-4 w-4 mr-2" />
-              Record Trade
-            </Link>
-          </Button>
+          <div className="flex gap-2">
+            <ImportTrades />
+            <Button asChild>
+              <Link href="/trades/new">
+                <Plus className="h-4 w-4 mr-2" />
+                Record Trade
+              </Link>
+            </Button>
+          </div>
         )}
       </div>
 
