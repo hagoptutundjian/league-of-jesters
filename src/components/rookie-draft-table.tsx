@@ -352,7 +352,7 @@ export function RookieDraftTable({
                           </span>
                         </TableCell>
                         <TableCell className="font-medium">
-                          {pick.teamAbbreviation}
+                          {pick.teamName}
                         </TableCell>
                         <TableCell>{pick.playerName}</TableCell>
                         {isCommissioner && (
