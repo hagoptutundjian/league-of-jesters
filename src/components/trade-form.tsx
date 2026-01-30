@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,7 +10,6 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
-  CardDescription,
 } from "@/components/ui/card";
 import {
   Select,
@@ -66,8 +65,8 @@ interface TradeParticipant {
   teamSlug: string;
   teamName: string;
   assets: TeamAssets | null;
+  isLoading: boolean;
   selectedAssets: Asset[];
-  receiving: Asset[]; // Populated after asset assignment
 }
 
 interface TradeFormProps {
@@ -83,9 +82,10 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
   const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const [participants, setParticipants] = useState<TradeParticipant[]>([
-    { teamId: "", teamSlug: "", teamName: "", assets: null, selectedAssets: [], receiving: [] },
-    { teamId: "", teamSlug: "", teamName: "", assets: null, selectedAssets: [], receiving: [] },
+    { teamId: "", teamSlug: "", teamName: "", assets: null, isLoading: false, selectedAssets: [] },
+    { teamId: "", teamSlug: "", teamName: "", assets: null, isLoading: false, selectedAssets: [] },
   ]);
+  const [assetDestinations, setAssetDestinations] = useState<Map<string, string>>(new Map());
   const router = useRouter();
 
   // Season options (5 years back to 2 years forward)
@@ -94,63 +94,88 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
     (_, i) => currentSeason - 5 + i
   );
 
-  // Fetch team assets when team is selected
-  const fetchTeamAssets = useCallback(async (teamSlug: string): Promise<TeamAssets | null> => {
-    try {
-      const res = await fetch(`/api/teams/${teamSlug}/tradeable-assets`);
-      if (!res.ok) return null;
-      return await res.json();
-    } catch {
-      return null;
-    }
-  }, []);
-
   const handleTeamChange = async (index: number, teamId: string) => {
     const team = teams.find((t) => t.id.toString() === teamId);
     if (!team) return;
 
     // Check if team is already in the trade
-    if (participants.some((p, i) => i !== index && p.teamId === teamId)) {
+    const isDuplicate = participants.some((p, i) => i !== index && p.teamId === teamId);
+    if (isDuplicate) {
       toast.error("This team is already in the trade");
       return;
     }
 
-    const updated = [...participants];
-    updated[index] = {
-      teamId,
-      teamSlug: team.slug,
-      teamName: team.name,
-      assets: null,
-      selectedAssets: [],
-      receiving: [],
-    };
-    setParticipants(updated);
+    // Set loading state
+    setParticipants(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        teamId,
+        teamSlug: team.slug,
+        teamName: team.name,
+        assets: null,
+        isLoading: true,
+        selectedAssets: [],
+      };
+      return updated;
+    });
 
     // Fetch assets
-    const assets = await fetchTeamAssets(team.slug);
-    if (assets) {
-      const newUpdated = [...participants];
-      newUpdated[index] = { ...updated[index], assets };
-      setParticipants(newUpdated);
+    try {
+      const res = await fetch(`/api/teams/${team.slug}/tradeable-assets`);
+      if (res.ok) {
+        const assets: TeamAssets = await res.json();
+        setParticipants(prev => {
+          const updated = [...prev];
+          updated[index] = {
+            ...updated[index],
+            assets,
+            isLoading: false,
+          };
+          return updated;
+        });
+      } else {
+        setParticipants(prev => {
+          const updated = [...prev];
+          updated[index] = {
+            ...updated[index],
+            isLoading: false,
+          };
+          return updated;
+        });
+        toast.error("Failed to load team assets");
+      }
+    } catch {
+      setParticipants(prev => {
+        const updated = [...prev];
+        updated[index] = {
+          ...updated[index],
+          isLoading: false,
+        };
+        return updated;
+      });
+      toast.error("Failed to load team assets");
     }
   };
 
   const toggleAsset = (participantIndex: number, asset: Asset) => {
-    const updated = [...participants];
-    const participant = updated[participantIndex];
-    const isSelected = participant.selectedAssets.some(
-      (a) => a.type === asset.type && a.id === asset.id
-    );
-
-    if (isSelected) {
-      participant.selectedAssets = participant.selectedAssets.filter(
-        (a) => !(a.type === asset.type && a.id === asset.id)
+    setParticipants(prev => {
+      const updated = [...prev];
+      const participant = { ...updated[participantIndex] };
+      const isSelected = participant.selectedAssets.some(
+        (a) => a.type === asset.type && a.id === asset.id
       );
-    } else {
-      participant.selectedAssets = [...participant.selectedAssets, asset];
-    }
 
-    setParticipants(updated);
+      if (isSelected) {
+        participant.selectedAssets = participant.selectedAssets.filter(
+          (a) => !(a.type === asset.type && a.id === asset.id)
+        );
+      } else {
+        participant.selectedAssets = [...participant.selectedAssets, asset];
+      }
+
+      updated[participantIndex] = participant;
+      return updated;
+    });
   };
 
   const addTeam = () => {
@@ -158,9 +183,9 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
       toast.error("Maximum 4 teams in a trade");
       return;
     }
-    setParticipants([
-      ...participants,
-      { teamId: "", teamSlug: "", teamName: "", assets: null, selectedAssets: [], receiving: [] },
+    setParticipants(prev => [
+      ...prev,
+      { teamId: "", teamSlug: "", teamName: "", assets: null, isLoading: false, selectedAssets: [] },
     ]);
   };
 
@@ -169,14 +194,8 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
       toast.error("Minimum 2 teams required");
       return;
     }
-    setParticipants(participants.filter((_, i) => i !== index));
+    setParticipants(prev => prev.filter((_, i) => i !== index));
   };
-
-  // For 2-team trades, assets go to the other team automatically
-  // For 3+ team trades, we need destination assignment
-  const [assetDestinations, setAssetDestinations] = useState<
-    Map<string, string>
-  >(new Map());
 
   const getAssetKey = (asset: Asset, fromTeamId: string) =>
     `${asset.type}-${asset.id}-${fromTeamId}`;
@@ -186,17 +205,17 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
     fromTeamId: string,
     toTeamId: string
   ) => {
-    const key = getAssetKey(asset, fromTeamId);
-    const newMap = new Map(assetDestinations);
-    newMap.set(key, toTeamId);
-    setAssetDestinations(newMap);
+    setAssetDestinations(prev => {
+      const newMap = new Map(prev);
+      newMap.set(getAssetKey(asset, fromTeamId), toTeamId);
+      return newMap;
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
 
-    // Validate
     const activeParticipants = participants.filter((p) => p.teamId);
     if (activeParticipants.length < 2) {
       toast.error("At least 2 teams required");
@@ -214,23 +233,19 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
       description: string;
     }[] = [];
 
-    // Build assets with destinations
     for (const participant of activeParticipants) {
       for (const asset of participant.selectedAssets) {
         let toTeamId: number;
 
         if (activeParticipants.length === 2) {
-          // 2-team trade: assets go to the other team
           toTeamId = parseInt(
-            activeParticipants.find((p) => p.teamId !== participant.teamId)!
-              .teamId
+            activeParticipants.find((p) => p.teamId !== participant.teamId)!.teamId
           );
         } else {
-          // Multi-team trade: check destination map
           const key = getAssetKey(asset, participant.teamId);
           const destId = assetDestinations.get(key);
           if (!destId) {
-            toast.error(`Please select destination for ${asset.label}`);
+            toast.error(`Please select destination for ${asset.type === "player" ? (asset as PlayerAsset).name : asset.label}`);
             setLoading(false);
             return;
           }
@@ -238,21 +253,23 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
         }
 
         if (asset.type === "player") {
+          const playerAsset = asset as PlayerAsset;
           allAssets.push({
             assetType: "player",
-            playerId: asset.id,
-            contractId: asset.contractId,
+            playerId: playerAsset.id,
+            contractId: playerAsset.contractId,
             fromTeamId: parseInt(participant.teamId),
             toTeamId,
-            description: asset.name,
+            description: playerAsset.name,
           });
         } else {
+          const pickAsset = asset as PickAsset;
           allAssets.push({
             assetType: "draft_pick",
-            draftPickId: asset.id,
+            draftPickId: pickAsset.id,
             fromTeamId: parseInt(participant.teamId),
             toTeamId,
-            description: asset.label,
+            description: pickAsset.label,
           });
         }
       }
@@ -273,7 +290,7 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
           season: Number(season),
           notes,
           assets: allAssets,
-          executeTransfer: true, // New flag to actually move assets
+          executeTransfer: true,
         }),
       });
 
@@ -294,6 +311,15 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
   };
 
   const isMultiTeam = participants.filter((p) => p.teamId).length > 2;
+
+  // Combine players and picks into one list for display
+  const getAllAssets = (participant: TradeParticipant): Asset[] => {
+    if (!participant.assets) return [];
+    return [
+      ...participant.assets.players,
+      ...participant.assets.picks,
+    ];
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
@@ -351,220 +377,155 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-2">
-          {participants.map((participant, index) => (
-            <Card key={index} className="relative">
-              <CardHeader className="pb-3">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">Team {index + 1}</CardTitle>
-                  {participants.length > 2 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => removeTeam(index)}
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-                </div>
-                <Select
-                  value={participant.teamId}
-                  onValueChange={(v) => handleTeamChange(index, v)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select team..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id.toString()}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </CardHeader>
+          {participants.map((participant, index) => {
+            const allAssets = getAllAssets(participant);
 
-              {participant.teamId && (
-                <CardContent className="space-y-4">
-                  {!participant.assets ? (
-                    <div className="flex items-center justify-center py-4 text-muted-foreground">
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Loading assets...
-                    </div>
-                  ) : (
-                    <>
-                      {/* Players */}
-                      {participant.assets.players.length > 0 && (
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                            Players
-                          </Label>
-                          <div className="space-y-1 max-h-48 overflow-y-auto">
-                            {participant.assets.players.map((player) => {
-                              const isSelected = participant.selectedAssets.some(
-                                (a) => a.type === "player" && a.id === player.id
-                              );
-                              return (
-                                <div
-                                  key={player.id}
-                                  className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
-                                    isSelected
-                                      ? "bg-primary/10 border-primary"
-                                      : "hover:bg-muted"
-                                  }`}
-                                  onClick={() => toggleAsset(index, player)}
-                                >
-                                  <Checkbox checked={isSelected} />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="font-medium text-sm truncate">
-                                      {player.name}
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">
-                                      {player.position} · ${Number(player.salary).toFixed(0)}
-                                    </p>
-                                  </div>
-                                  {isSelected && isMultiTeam && (
-                                    <Select
-                                      value={
-                                        assetDestinations.get(
-                                          getAssetKey(player, participant.teamId)
-                                        ) || ""
-                                      }
-                                      onValueChange={(v) =>
-                                        setAssetDestination(
-                                          player,
-                                          participant.teamId,
-                                          v
-                                        )
-                                      }
-                                    >
-                                      <SelectTrigger
-                                        className="w-28 h-7 text-xs"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <SelectValue placeholder="To..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {participants
-                                          .filter(
-                                            (p) =>
-                                              p.teamId &&
-                                              p.teamId !== participant.teamId
-                                          )
-                                          .map((p) => (
-                                            <SelectItem key={p.teamId} value={p.teamId}>
-                                              {p.teamName}
-                                            </SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                    </Select>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+            return (
+              <Card key={index} className="relative">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-base">Team {index + 1}</CardTitle>
+                    {participants.length > 2 && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => removeTeam(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                  <Select
+                    value={participant.teamId}
+                    onValueChange={(v) => handleTeamChange(index, v)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select team..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {teams.map((team) => (
+                        <SelectItem key={team.id} value={team.id.toString()}>
+                          {team.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </CardHeader>
 
-                      {/* Draft Picks */}
-                      {participant.assets.picks.length > 0 && (
-                        <div className="space-y-2">
-                          <Label className="text-xs text-muted-foreground uppercase tracking-wide">
-                            Draft Picks
-                          </Label>
-                          <div className="space-y-1 max-h-36 overflow-y-auto">
-                            {participant.assets.picks.map((pick) => {
-                              const isSelected = participant.selectedAssets.some(
-                                (a) => a.type === "draft_pick" && a.id === pick.id
-                              );
-                              return (
-                                <div
-                                  key={pick.id}
-                                  className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
-                                    isSelected
-                                      ? "bg-primary/10 border-primary"
-                                      : "hover:bg-muted"
-                                  }`}
-                                  onClick={() => toggleAsset(index, pick)}
-                                >
-                                  <Checkbox checked={isSelected} />
-                                  <span className="text-sm flex-1">{pick.label}</span>
-                                  {isSelected && isMultiTeam && (
-                                    <Select
-                                      value={
-                                        assetDestinations.get(
-                                          getAssetKey(pick, participant.teamId)
-                                        ) || ""
-                                      }
-                                      onValueChange={(v) =>
-                                        setAssetDestination(
-                                          pick,
-                                          participant.teamId,
-                                          v
-                                        )
-                                      }
-                                    >
-                                      <SelectTrigger
-                                        className="w-28 h-7 text-xs"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <SelectValue placeholder="To..." />
-                                      </SelectTrigger>
-                                      <SelectContent>
-                                        {participants
-                                          .filter(
-                                            (p) =>
-                                              p.teamId &&
-                                              p.teamId !== participant.teamId
-                                          )
-                                          .map((p) => (
-                                            <SelectItem key={p.teamId} value={p.teamId}>
-                                              {p.teamName}
-                                            </SelectItem>
-                                          ))}
-                                      </SelectContent>
-                                    </Select>
-                                  )}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
+                {participant.teamId && (
+                  <CardContent>
+                    {participant.isLoading ? (
+                      <div className="flex items-center justify-center py-4 text-muted-foreground">
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Loading assets...
+                      </div>
+                    ) : allAssets.length === 0 ? (
+                      <p className="text-sm text-muted-foreground text-center py-4">
+                        No tradeable assets
+                      </p>
+                    ) : (
+                      <div className="space-y-3">
+                        {/* Combined asset list */}
+                        <div className="space-y-1 max-h-64 overflow-y-auto">
+                          {allAssets.map((asset) => {
+                            const isSelected = participant.selectedAssets.some(
+                              (a) => a.type === asset.type && a.id === asset.id
+                            );
+                            const isPlayer = asset.type === "player";
+                            const playerAsset = isPlayer ? (asset as PlayerAsset) : null;
+                            const pickAsset = !isPlayer ? (asset as PickAsset) : null;
 
-                      {participant.assets.players.length === 0 &&
-                        participant.assets.picks.length === 0 && (
-                          <p className="text-sm text-muted-foreground text-center py-4">
-                            No tradeable assets
-                          </p>
-                        )}
-
-                      {/* Selected summary */}
-                      {participant.selectedAssets.length > 0 && (
-                        <div className="pt-2 border-t">
-                          <p className="text-xs text-muted-foreground mb-1">
-                            Trading away:
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {participant.selectedAssets.map((asset) => (
-                              <Badge
+                            return (
+                              <div
                                 key={`${asset.type}-${asset.id}`}
-                                variant="secondary"
-                                className="text-xs"
+                                className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                                  isSelected
+                                    ? "bg-primary/10 border-primary"
+                                    : "hover:bg-muted"
+                                }`}
+                                onClick={() => toggleAsset(index, asset)}
                               >
-                                {asset.type === "player" ? asset.name : asset.label}
-                              </Badge>
-                            ))}
-                          </div>
+                                <Checkbox
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleAsset(index, asset)}
+                                  onClick={(e) => e.stopPropagation()}
+                                />
+                                <div className="flex-1 min-w-0">
+                                  {isPlayer && playerAsset ? (
+                                    <>
+                                      <p className="font-medium text-sm truncate">
+                                        {playerAsset.name}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        {playerAsset.position} · ${Number(playerAsset.salary).toFixed(0)}
+                                      </p>
+                                    </>
+                                  ) : pickAsset ? (
+                                    <>
+                                      <p className="font-medium text-sm">
+                                        {pickAsset.label}
+                                      </p>
+                                      <p className="text-xs text-muted-foreground">
+                                        Draft Pick
+                                      </p>
+                                    </>
+                                  ) : null}
+                                </div>
+                                {isSelected && isMultiTeam && (
+                                  <Select
+                                    value={assetDestinations.get(getAssetKey(asset, participant.teamId)) || ""}
+                                    onValueChange={(v) => setAssetDestination(asset, participant.teamId, v)}
+                                  >
+                                    <SelectTrigger
+                                      className="w-28 h-7 text-xs"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
+                                      <SelectValue placeholder="To..." />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {participants
+                                        .filter((p) => p.teamId && p.teamId !== participant.teamId)
+                                        .map((p) => (
+                                          <SelectItem key={p.teamId} value={p.teamId}>
+                                            {p.teamName}
+                                          </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                  </Select>
+                                )}
+                              </div>
+                            );
+                          })}
                         </div>
-                      )}
-                    </>
-                  )}
-                </CardContent>
-              )}
-            </Card>
-          ))}
+
+                        {/* Selected summary */}
+                        {participant.selectedAssets.length > 0 && (
+                          <div className="pt-2 border-t">
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Trading away ({participant.selectedAssets.length}):
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {participant.selectedAssets.map((asset) => (
+                                <Badge
+                                  key={`${asset.type}-${asset.id}`}
+                                  variant="secondary"
+                                  className="text-xs"
+                                >
+                                  {asset.type === "player" ? (asset as PlayerAsset).name : asset.label}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CardContent>
+                )}
+              </Card>
+            );
+          })}
         </div>
       </div>
 
@@ -588,7 +549,7 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
                   <div className="space-y-1">
                     {participants[1].selectedAssets.map((asset) => (
                       <p key={`${asset.type}-${asset.id}`} className="text-sm">
-                        • {asset.type === "player" ? asset.name : asset.label}
+                        • {asset.type === "player" ? (asset as PlayerAsset).name : asset.label}
                       </p>
                     ))}
                   </div>
@@ -600,7 +561,7 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
                   <div className="space-y-1">
                     {participants[0].selectedAssets.map((asset) => (
                       <p key={`${asset.type}-${asset.id}`} className="text-sm">
-                        • {asset.type === "player" ? asset.name : asset.label}
+                        • {asset.type === "player" ? (asset as PlayerAsset).name : asset.label}
                       </p>
                     ))}
                   </div>
