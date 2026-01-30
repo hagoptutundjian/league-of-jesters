@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { RookieDraftTable } from "@/components/rookie-draft-table";
 import { ImportRookieDraft } from "@/components/import-rookie-draft";
+import { AddDraftPick } from "@/components/add-draft-pick";
 
 export const dynamic = "force-dynamic";
 
@@ -75,7 +76,12 @@ export default async function RookieDraftPage() {
             View historical rookie draft picks by year and team
           </p>
         </div>
-        {commissioner && <ImportRookieDraft teams={allTeams} />}
+        {commissioner && (
+          <div className="flex gap-2">
+            <AddDraftPick teams={allTeams} existingYears={draftYears} />
+            <ImportRookieDraft teams={allTeams} />
+          </div>
+        )}
       </div>
 
       {/* Summary stats */}
@@ -155,6 +161,7 @@ export default async function RookieDraftPage() {
             draftHistory={draftHistory}
             years={draftYears}
             teams={allTeams}
+            isCommissioner={commissioner}
           />
         </CardContent>
       </Card>
