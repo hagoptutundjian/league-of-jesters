@@ -139,14 +139,43 @@ export async function POST(request: Request) {
       );
     }
 
-    // Get all teams for lookup
+    // Get all teams for lookup - create multiple lookup maps
     const allTeams = await db.select().from(teams);
     const teamByName = new Map(allTeams.map((t) => [t.name.toLowerCase(), t]));
     const teamByAbbr = new Map(allTeams.map((t) => [t.abbreviation.toLowerCase(), t]));
+    const teamBySlug = new Map(allTeams.map((t) => [t.slug.toLowerCase(), t]));
+
+    // Also create lookups without spaces/special chars for fuzzy matching
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const teamByNormalizedName = new Map(allTeams.map((t) => [normalize(t.name), t]));
+    const teamByNormalizedAbbr = new Map(allTeams.map((t) => [normalize(t.abbreviation), t]));
 
     const findTeam = (name: string) => {
-      const lower = name.toLowerCase();
-      return teamByName.get(lower) || teamByAbbr.get(lower);
+      const lower = name.toLowerCase().trim();
+      const normalized = normalize(name);
+
+      // Try exact matches first
+      if (teamByName.has(lower)) return teamByName.get(lower);
+      if (teamByAbbr.has(lower)) return teamByAbbr.get(lower);
+      if (teamBySlug.has(lower)) return teamBySlug.get(lower);
+
+      // Try normalized (no spaces/special chars)
+      if (teamByNormalizedName.has(normalized)) return teamByNormalizedName.get(normalized);
+      if (teamByNormalizedAbbr.has(normalized)) return teamByNormalizedAbbr.get(normalized);
+
+      // Try partial match - if input contains team name or vice versa
+      for (const team of allTeams) {
+        const teamNameLower = team.name.toLowerCase();
+        const teamAbbrLower = team.abbreviation.toLowerCase();
+        if (lower.includes(teamNameLower) || teamNameLower.includes(lower)) {
+          return team;
+        }
+        if (lower.includes(teamAbbrLower) || teamAbbrLower.includes(lower)) {
+          return team;
+        }
+      }
+
+      return undefined;
     };
 
     // Parse the import data
