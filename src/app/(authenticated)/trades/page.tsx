@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DeleteTradeButton } from "@/components/delete-trade-button";
 import { ArrowRight, Plus } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -254,12 +255,25 @@ export default async function TradesPage() {
                             </Badge>
                           )}
                         </div>
-                        <div className="flex gap-1">
-                          {trade.participants.map((p) => (
-                            <Badge key={p.teamId} variant="secondary" className="text-xs">
-                              {p.teamAbbr}
-                            </Badge>
-                          ))}
+                        <div className="flex items-center gap-2">
+                          <div className="flex gap-1">
+                            {trade.participants.map((p) => (
+                              <Badge key={p.teamId} variant="secondary" className="text-xs">
+                                {p.teamAbbr}
+                              </Badge>
+                            ))}
+                          </div>
+                          {commissioner && (
+                            <DeleteTradeButton
+                              tradeId={trade.id}
+                              tradeDate={new Date(trade.tradeDate).toLocaleDateString("en-US", {
+                                month: "short",
+                                day: "numeric",
+                                year: "numeric",
+                              })}
+                              teamAbbrs={trade.participants.map((p) => p.teamAbbr)}
+                            />
+                          )}
                         </div>
                       </div>
 
