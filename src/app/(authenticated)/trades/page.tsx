@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
 import { trades, tradeAssets, tradeParticipants, teams, players, draftPicks } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, sql } from "drizzle-orm";
 import { isCommissioner } from "@/lib/auth/server";
 import Link from "next/link";
 import {
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DeleteTradeButton } from "@/components/delete-trade-button";
 import { ImportTrades } from "@/components/import-trades";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRightLeft, Plus, Trophy } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +24,17 @@ interface TradeAssetWithDetails {
   fromTeamId: number;
   toTeamId: number;
   playerName: string | null;
-  fromTeamName: string;
   fromTeamAbbr: string;
-  toTeamName: string;
   toTeamAbbr: string;
   draftPickYear: number | null;
   draftPickRound: number | null;
+}
+
+interface TradeLeaderboardEntry {
+  teamId: number;
+  teamName: string;
+  teamAbbr: string;
+  tradeCount: number;
 }
 
 async function getTradesWithDetails() {
@@ -95,23 +100,6 @@ async function getTradesWithDetails() {
           const fromTeam = participantsData.find((p) => p.teamId === asset.fromTeamId);
           const toTeam = participantsData.find((p) => p.teamId === asset.toTeamId);
 
-          // If teams not in participants (shouldn't happen), fetch them
-          let fromTeamName = fromTeam?.teamName || "";
-          let fromTeamAbbr = fromTeam?.teamAbbr || "";
-          let toTeamName = toTeam?.teamName || "";
-          let toTeamAbbr = toTeam?.teamAbbr || "";
-
-          if (!fromTeam) {
-            const t = await db.select().from(teams).where(eq(teams.id, asset.fromTeamId)).limit(1);
-            fromTeamName = t[0]?.name || "Unknown";
-            fromTeamAbbr = t[0]?.abbreviation || "???";
-          }
-          if (!toTeam) {
-            const t = await db.select().from(teams).where(eq(teams.id, asset.toTeamId)).limit(1);
-            toTeamName = t[0]?.name || "Unknown";
-            toTeamAbbr = t[0]?.abbreviation || "???";
-          }
-
           return {
             id: asset.id,
             assetType: asset.assetType,
@@ -119,10 +107,8 @@ async function getTradesWithDetails() {
             fromTeamId: asset.fromTeamId,
             toTeamId: asset.toTeamId,
             playerName,
-            fromTeamName,
-            fromTeamAbbr,
-            toTeamName,
-            toTeamAbbr,
+            fromTeamAbbr: fromTeam?.teamAbbr || "???",
+            toTeamAbbr: toTeam?.teamAbbr || "???",
             draftPickYear,
             draftPickRound,
           };
@@ -140,10 +126,55 @@ async function getTradesWithDetails() {
   return tradesWithDetails;
 }
 
+async function getTradeLeaderboards() {
+  // Get current season (assume it's the max season in trades)
+  const currentSeasonResult = await db
+    .select({ maxSeason: sql<number>`MAX(${trades.season})` })
+    .from(trades);
+  const currentSeason = currentSeasonResult[0]?.maxSeason || new Date().getFullYear();
+
+  // All-time leaderboard
+  const allTimeLeaderboard = await db
+    .select({
+      teamId: tradeParticipants.teamId,
+      teamName: teams.name,
+      teamAbbr: teams.abbreviation,
+      tradeCount: sql<number>`COUNT(DISTINCT ${tradeParticipants.tradeId})`,
+    })
+    .from(tradeParticipants)
+    .innerJoin(teams, eq(tradeParticipants.teamId, teams.id))
+    .groupBy(tradeParticipants.teamId, teams.name, teams.abbreviation)
+    .orderBy(desc(sql`COUNT(DISTINCT ${tradeParticipants.tradeId})`))
+    .limit(5);
+
+  // Current season leaderboard
+  const currentSeasonLeaderboard = await db
+    .select({
+      teamId: tradeParticipants.teamId,
+      teamName: teams.name,
+      teamAbbr: teams.abbreviation,
+      tradeCount: sql<number>`COUNT(DISTINCT ${tradeParticipants.tradeId})`,
+    })
+    .from(tradeParticipants)
+    .innerJoin(teams, eq(tradeParticipants.teamId, teams.id))
+    .innerJoin(trades, eq(tradeParticipants.tradeId, trades.id))
+    .where(eq(trades.season, currentSeason))
+    .groupBy(tradeParticipants.teamId, teams.name, teams.abbreviation)
+    .orderBy(desc(sql`COUNT(DISTINCT ${tradeParticipants.tradeId})`))
+    .limit(5);
+
+  return {
+    allTime: allTimeLeaderboard as TradeLeaderboardEntry[],
+    currentSeason: currentSeasonLeaderboard as TradeLeaderboardEntry[],
+    currentSeasonYear: currentSeason,
+  };
+}
+
 export default async function TradesPage() {
-  const [allTrades, commissioner] = await Promise.all([
+  const [allTrades, commissioner, leaderboards] = await Promise.all([
     getTradesWithDetails(),
     isCommissioner(),
+    getTradeLeaderboards(),
   ]);
 
   // Group by season
@@ -159,11 +190,10 @@ export default async function TradesPage() {
 
   // Group assets by receiving team for cleaner display
   const groupAssetsByReceiver = (assets: TradeAssetWithDetails[]) => {
-    const grouped = new Map<number, { team: string; abbr: string; assets: TradeAssetWithDetails[] }>();
+    const grouped = new Map<number, { abbr: string; assets: TradeAssetWithDetails[] }>();
     for (const asset of assets) {
       if (!grouped.has(asset.toTeamId)) {
         grouped.set(asset.toTeamId, {
-          team: asset.toTeamName,
           abbr: asset.toTeamAbbr,
           assets: [],
         });
@@ -178,9 +208,27 @@ export default async function TradesPage() {
       return asset.playerName;
     }
     if (asset.assetType === "draft_pick" && asset.draftPickYear && asset.draftPickRound) {
-      return `${asset.draftPickYear} Round ${asset.draftPickRound}`;
+      // Compact format: '25 R1
+      return `'${String(asset.draftPickYear).slice(-2)} R${asset.draftPickRound}`;
     }
-    return asset.description || "Unknown asset";
+    // For description-based picks, try to shorten
+    if (asset.description) {
+      const match = asset.description.match(/(\d{4}).*?(\d+)(?:st|nd|rd|th)?\s*round/i);
+      if (match) {
+        return `'${match[1].slice(-2)} R${match[2]}`;
+      }
+      return asset.description;
+    }
+    return "Unknown";
+  };
+
+  const formatCompactDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString("en-US", {
+      month: "numeric",
+      day: "numeric",
+      year: "2-digit",
+    });
   };
 
   return (
@@ -189,7 +237,7 @@ export default async function TradesPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Trade History</h1>
           <p className="text-muted-foreground">
-            All trades across all seasons
+            {allTrades.length} trades across {seasons.length} seasons
           </p>
         </div>
         {commissioner && (
@@ -204,6 +252,75 @@ export default async function TradesPage() {
           </div>
         )}
       </div>
+
+      {/* Leaderboards */}
+      {allTrades.length > 0 && (
+        <div className="grid md:grid-cols-2 gap-4">
+          {/* All-Time Leaders */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-yellow-500" />
+                All-Time Trade Leaders
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-1">
+                {leaderboards.allTime.map((entry, index) => (
+                  <div
+                    key={entry.teamId}
+                    className="flex items-center justify-between text-sm py-1"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className={`font-bold w-5 ${index === 0 ? "text-yellow-500" : index === 1 ? "text-gray-400" : index === 2 ? "text-amber-600" : "text-muted-foreground"}`}>
+                        {index + 1}.
+                      </span>
+                      <span className="font-medium">{entry.teamName}</span>
+                    </div>
+                    <Badge variant="secondary" className="text-xs">
+                      {entry.tradeCount}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Current Season Leaders */}
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
+                <ArrowRightLeft className="h-4 w-4 text-blue-500" />
+                {leaderboards.currentSeasonYear} Season Leaders
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-1">
+                {leaderboards.currentSeason.length > 0 ? (
+                  leaderboards.currentSeason.map((entry, index) => (
+                    <div
+                      key={entry.teamId}
+                      className="flex items-center justify-between text-sm py-1"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className={`font-bold w-5 ${index === 0 ? "text-blue-500" : "text-muted-foreground"}`}>
+                          {index + 1}.
+                        </span>
+                        <span className="font-medium">{entry.teamName}</span>
+                      </div>
+                      <Badge variant="secondary" className="text-xs">
+                        {entry.tradeCount}
+                      </Badge>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-muted-foreground py-2">No trades this season</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {allTrades.length === 0 ? (
         <Card>
@@ -221,99 +338,61 @@ export default async function TradesPage() {
       ) : (
         seasons.map((season) => (
           <Card key={season}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                {season} Season
-                <Badge variant="secondary">
-                  {tradesBySeason.get(season)!.length} trade{tradesBySeason.get(season)!.length !== 1 ? "s" : ""}
+            <CardHeader className="py-3">
+              <CardTitle className="text-lg flex items-center gap-2">
+                {season}
+                <Badge variant="secondary" className="text-xs">
+                  {tradesBySeason.get(season)!.length}
                 </Badge>
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="pt-0">
+              <div className="divide-y">
                 {tradesBySeason.get(season)!.map((trade) => {
                   const groupedByReceiver = groupAssetsByReceiver(trade.assets);
-                  const isMultiTeam = trade.participants.length > 2;
 
                   return (
                     <div
                       key={trade.id}
-                      className="rounded-lg border p-4 space-y-3"
+                      className="py-2 first:pt-0 last:pb-0"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>
-                            {new Date(trade.tradeDate).toLocaleDateString(
-                              "en-US",
-                              {
-                                weekday: "short",
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              }
-                            )}
-                          </span>
-                          {isMultiTeam && (
-                            <Badge variant="outline" className="text-xs">
-                              {trade.participants.length}-team trade
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <div className="flex gap-1">
-                            {trade.participants.map((p) => (
-                              <Badge key={p.teamId} variant="secondary" className="text-xs">
-                                {p.teamAbbr}
-                              </Badge>
+                      <div className="flex items-start gap-3">
+                        {/* Date */}
+                        <span className="text-xs text-muted-foreground w-16 flex-shrink-0 pt-0.5">
+                          {formatCompactDate(trade.tradeDate)}
+                        </span>
+
+                        {/* Trade content */}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                            {groupedByReceiver.map((group, idx) => (
+                              <div key={group.abbr} className="flex items-center gap-1">
+                                <Badge variant="outline" className="text-xs font-bold px-1.5 py-0">
+                                  {group.abbr}
+                                </Badge>
+                                <span className="text-muted-foreground">gets</span>
+                                <span className="truncate">
+                                  {group.assets.map((a, i) => (
+                                    <span key={a.id}>
+                                      {i > 0 && ", "}
+                                      <span className="font-medium">{getAssetDisplay(a)}</span>
+                                    </span>
+                                  ))}
+                                </span>
+                              </div>
                             ))}
                           </div>
-                          {commissioner && (
-                            <DeleteTradeButton
-                              tradeId={trade.id}
-                              tradeDate={new Date(trade.tradeDate).toLocaleDateString("en-US", {
-                                month: "short",
-                                day: "numeric",
-                                year: "numeric",
-                              })}
-                              teamAbbrs={trade.participants.map((p) => p.teamAbbr)}
-                            />
-                          )}
                         </div>
-                      </div>
 
-                      {/* Show what each team receives */}
-                      <div className={`grid gap-3 ${groupedByReceiver.length > 2 ? "md:grid-cols-2" : "md:grid-cols-2"}`}>
-                        {groupedByReceiver.map((group) => (
-                          <div
-                            key={group.abbr}
-                            className="bg-muted/50 rounded-md p-3"
-                          >
-                            <p className="font-medium text-sm mb-2">
-                              {group.team} receives:
-                            </p>
-                            <ul className="space-y-1">
-                              {group.assets.map((asset) => (
-                                <li
-                                  key={asset.id}
-                                  className="text-sm flex items-center gap-2"
-                                >
-                                  <ArrowRight className="h-3 w-3 text-muted-foreground flex-shrink-0" />
-                                  <span>{getAssetDisplay(asset)}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    from {asset.fromTeamAbbr}
-                                  </span>
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        ))}
+                        {/* Delete button */}
+                        {commissioner && (
+                          <DeleteTradeButton
+                            tradeId={trade.id}
+                            tradeDate={formatCompactDate(trade.tradeDate)}
+                            teamAbbrs={trade.participants.map((p) => p.teamAbbr)}
+                          />
+                        )}
                       </div>
-
-                      {trade.notes && (
-                        <p className="text-sm text-muted-foreground italic border-t pt-2">
-                          Note: {trade.notes}
-                        </p>
-                      )}
                     </div>
                   );
                 })}
