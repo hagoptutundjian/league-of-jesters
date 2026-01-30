@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/auth/config";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { useState } from "react";
 
 const navLinks = [
@@ -90,6 +91,7 @@ export function Nav({ userEmail, isCommissioner, teamSlug }: NavProps) {
               {userEmail}
             </span>
           )}
+          <ThemeToggle />
           <Button variant="ghost" size="sm" onClick={handleSignOut} className="hidden md:inline-flex">
             Sign Out
           </Button>
@@ -117,9 +119,13 @@ export function Nav({ userEmail, isCommissioner, teamSlug }: NavProps) {
           </button>
         </div>
       </div>
-      {/* Mobile menu */}
-      {mobileMenuOpen && (
-        <nav className="md:hidden border-t bg-card px-4 py-2 space-y-1">
+      {/* Mobile menu with animation */}
+      <div
+        className={`md:hidden border-t bg-card overflow-hidden transition-all duration-300 ease-in-out ${
+          mobileMenuOpen ? "max-h-96 opacity-100" : "max-h-0 opacity-0"
+        }`}
+      >
+        <nav className="px-4 py-2 space-y-1">
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -178,7 +184,7 @@ export function Nav({ userEmail, isCommissioner, teamSlug }: NavProps) {
             </button>
           </div>
         </nav>
-      )}
+      </div>
     </header>
   );
 }

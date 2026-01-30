@@ -84,12 +84,16 @@ export default async function TeamsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {teamsData.map((team) => (
-              <TableRow key={team.id}>
+            {teamsData.map((team, index) => (
+              <TableRow
+                key={team.id}
+                className="row-hover animate-fade-in"
+                style={{ animationDelay: `${index * 50}ms` }}
+              >
                 <TableCell className="sticky left-0 bg-background font-medium">
                   <Link
                     href={`/teams/${team.slug}`}
-                    className="hover:underline"
+                    className="hover:underline hover:text-primary transition-colors"
                   >
                     {team.name}
                   </Link>

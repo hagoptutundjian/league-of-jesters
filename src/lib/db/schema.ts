@@ -65,6 +65,9 @@ export const teams = pgTable("teams", {
   abbreviation: text("abbreviation").notNull().unique(),
   ownerName: text("owner_name"),
   userId: uuid("user_id"),
+  primaryColor: text("primary_color").default("#6366f1"), // Tailwind indigo-500
+  secondaryColor: text("secondary_color").default("#818cf8"), // Tailwind indigo-400
+  logoUrl: text("logo_url"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
