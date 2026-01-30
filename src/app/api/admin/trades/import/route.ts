@@ -213,7 +213,7 @@ export async function POST(request: Request) {
           .values({
             tradeDate,
             season: trade.season,
-            notes: resolvedTeams.length > 2 ? `${resolvedTeams.length}-team trade (imported)` : "Imported from historical data",
+            notes: resolvedTeams.length > 2 ? `${resolvedTeams.length}-team trade` : null,
             recordedBy: user.id,
           })
           .returning({ id: trades.id });
