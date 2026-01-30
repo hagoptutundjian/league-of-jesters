@@ -49,17 +49,6 @@ export default async function AdminPage() {
           </Card>
         </Link>
 
-        <Link href="/admin/players">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardHeader>
-              <CardTitle>Player Management</CardTitle>
-              <CardDescription>
-                Add, edit, and manage all players and contracts
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
         <Link href="/admin/draft-picks">
           <Card className="transition-colors hover:bg-accent/50">
             <CardHeader>
