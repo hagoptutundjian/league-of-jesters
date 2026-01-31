@@ -62,10 +62,19 @@ export default async function RookieDraftPage() {
   const picksByTeam = allTeams.map((team) => ({
     ...team,
     totalPicks: draftHistory.filter((d) => d.teamId === team.id).length,
-    firstRoundPicks: draftHistory.filter(
-      (d) => d.teamId === team.id && d.round === 1
-    ).length,
   }));
+
+  // Top 3 most picks (descending)
+  const topPickers = [...picksByTeam]
+    .filter((t) => t.totalPicks > 0)
+    .sort((a, b) => b.totalPicks - a.totalPicks)
+    .slice(0, 3);
+
+  // Bottom 3 least picks (ascending)
+  const bottomPickers = [...picksByTeam]
+    .filter((t) => t.totalPicks > 0)
+    .sort((a, b) => a.totalPicks - b.totalPicks)
+    .slice(0, 3);
 
   return (
     <div className="space-y-6">
@@ -114,33 +123,44 @@ export default async function RookieDraftPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              First Round Picks
+              Most Picks
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">
-              {draftHistory.filter((d) => d.round === 1).length}
-            </div>
+            {topPickers.length > 0 ? (
+              <div className="space-y-1">
+                {topPickers.map((team, index) => (
+                  <div key={team.id} className="flex items-center justify-between text-sm">
+                    <span className={index === 0 ? "font-medium" : ""}>{team.name}</span>
+                    <span className={`font-mono ${index === 0 ? "font-bold" : "text-muted-foreground"}`}>
+                      {team.totalPicks}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-2xl font-bold">-</div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
-              Most Picks
+              Least Picks
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {picksByTeam.length > 0 && picksByTeam.some((t) => t.totalPicks > 0) ? (
-              <>
-                <div className="text-2xl font-bold">
-                  {Math.max(...picksByTeam.map((t) => t.totalPicks))}
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {picksByTeam.find(
-                    (t) => t.totalPicks === Math.max(...picksByTeam.map((t) => t.totalPicks))
-                  )?.name || ""}
-                </p>
-              </>
+            {bottomPickers.length > 0 ? (
+              <div className="space-y-1">
+                {bottomPickers.map((team, index) => (
+                  <div key={team.id} className="flex items-center justify-between text-sm">
+                    <span className={index === 0 ? "font-medium" : ""}>{team.name}</span>
+                    <span className={`font-mono ${index === 0 ? "font-bold" : "text-muted-foreground"}`}>
+                      {team.totalPicks}
+                    </span>
+                  </div>
+                ))}
+              </div>
             ) : (
               <div className="text-2xl font-bold">-</div>
             )}
