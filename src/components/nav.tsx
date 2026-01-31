@@ -13,6 +13,7 @@ const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/teams", label: "Teams" },
   { href: "/rookie-draft", label: "Rookie Draft" },
+  { href: "/free-agent-auction", label: "FA Auction" },
   { href: "/trades", label: "Trades" },
   { href: "/players", label: "Salaries" },
 ];
