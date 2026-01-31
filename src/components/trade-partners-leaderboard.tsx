@@ -54,7 +54,7 @@ export function TradePartnersLeaderboard({ entries }: TradePartnersLeaderboardPr
                   {index + 1}.
                 </span>
                 <span className="font-medium">
-                  {entry.team1Abbr} <span className="text-muted-foreground mx-1">↔</span> {entry.team2Abbr}
+                  {entry.team1Name} <span className="text-muted-foreground mx-1">↔</span> {entry.team2Name}
                 </span>
               </div>
               <Badge variant="secondary" className="text-xs">
