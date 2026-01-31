@@ -103,6 +103,17 @@ export default async function AdminPage() {
             </CardHeader>
           </Card>
         </Link>
+
+        <Link href="/admin/link-rookie-draft">
+          <Card className="transition-colors hover:bg-accent/50">
+            <CardHeader>
+              <CardTitle>Link Rookie Draft</CardTitle>
+              <CardDescription>
+                Match rookie draft picks to player registry for position data
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </div>
   );
