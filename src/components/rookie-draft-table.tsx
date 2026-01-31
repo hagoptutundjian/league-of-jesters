@@ -47,6 +47,7 @@ interface DraftPick {
   teamId: number;
   teamName: string;
   teamAbbreviation: string;
+  position: string | null;
 }
 
 interface Team {
@@ -149,6 +150,21 @@ export function RookieDraftTable({
         return "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200";
       case 4:
         return "bg-sky-100 text-sky-800 dark:bg-sky-900 dark:text-sky-200";
+      default:
+        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
+    }
+  };
+
+  const getPositionBadgeColor = (position: string | null) => {
+    switch (position) {
+      case "QB":
+        return "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200";
+      case "WR":
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200";
+      case "RB":
+        return "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200";
+      case "TE":
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200";
       default:
         return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200";
     }
@@ -327,6 +343,7 @@ export function RookieDraftTable({
                       <TableHead className="w-20">Round</TableHead>
                       <TableHead className="w-32">Team</TableHead>
                       <TableHead>Player</TableHead>
+                      <TableHead className="w-16">Pos</TableHead>
                       {isCommissioner && (
                         <TableHead className="w-16"></TableHead>
                       )}
@@ -355,6 +372,17 @@ export function RookieDraftTable({
                           {pick.teamName}
                         </TableCell>
                         <TableCell>{pick.playerName}</TableCell>
+                        <TableCell>
+                          {pick.position ? (
+                            <span
+                              className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold ${getPositionBadgeColor(pick.position)}`}
+                            >
+                              {pick.position}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground text-xs">-</span>
+                          )}
+                        </TableCell>
                         {isCommissioner && (
                           <TableCell>
                             <DropdownMenu>
