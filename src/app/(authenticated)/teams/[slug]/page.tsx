@@ -176,8 +176,8 @@ export default async function TeamDetailPage({ params }: PageProps) {
   }
 
   // Get all teams for lookup (needed for "Via" column in draft picks)
-  const allTeams = await db.select({ id: teams.id, name: teams.name, abbreviation: teams.abbreviation }).from(teams);
-  const teamNameMap = new Map(allTeams.map((t) => [t.id, t.abbreviation || t.name]));
+  const allTeams = await db.select({ id: teams.id, name: teams.name }).from(teams);
+  const teamNameMap = new Map(allTeams.map((t) => [t.id, t.name]));
 
   // Get draft picks with original team info
   const teamDraftPicks = await db
