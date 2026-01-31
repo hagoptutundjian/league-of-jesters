@@ -354,7 +354,7 @@ export default async function TradesPage() {
                   return (
                     <div
                       key={trade.id}
-                      className="py-2 first:pt-0 last:pb-0"
+                      className="py-3 first:pt-0 last:pb-0"
                     >
                       <div className="flex items-start gap-3">
                         {/* Date */}
@@ -364,21 +364,24 @@ export default async function TradesPage() {
 
                         {/* Trade content */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                            {groupedByReceiver.map((group, idx) => (
-                              <div key={group.abbr} className="flex items-center gap-1">
-                                <Badge variant="outline" className="text-xs font-bold px-1.5 py-0">
-                                  {group.abbr}
-                                </Badge>
-                                <span className="text-muted-foreground">gets</span>
-                                <span className="truncate">
-                                  {group.assets.map((a, i) => (
-                                    <span key={a.id}>
-                                      {i > 0 && ", "}
+                          <div className="grid gap-3 sm:grid-cols-2">
+                            {groupedByReceiver.map((group) => (
+                              <div key={group.abbr} className="space-y-1">
+                                <div className="flex items-center gap-1.5">
+                                  <Badge variant="outline" className="text-xs font-bold px-1.5 py-0">
+                                    {group.abbr}
+                                  </Badge>
+                                  <span className="text-xs text-muted-foreground">receives</span>
+                                </div>
+                                <ul className="text-sm space-y-0.5 pl-1">
+                                  {group.assets.map((a) => (
+                                    <li key={a.id} className="flex items-center gap-1.5">
+                                      <span className="text-muted-foreground">•</span>
                                       <span className="font-medium">{getAssetDisplay(a)}</span>
-                                    </span>
+                                      <span className="text-xs text-muted-foreground">from {a.fromTeamAbbr}</span>
+                                    </li>
                                   ))}
-                                </span>
+                                </ul>
                               </div>
                             ))}
                           </div>
