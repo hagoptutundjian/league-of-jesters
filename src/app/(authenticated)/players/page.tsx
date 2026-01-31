@@ -4,11 +4,13 @@ import { eq, asc } from "drizzle-orm";
 import { calculateSalary } from "@/lib/salary/engine";
 import { PlayerRegistry } from "@/components/player-registry";
 import { type AcquisitionType } from "@/lib/constants";
+import { getUser } from "@/lib/auth/server";
 
 export const dynamic = "force-dynamic";
 
 interface PlayerWithSalary {
   playerId: number;
+  contractId: number;
   playerName: string;
   position: string | null;
   salary: number;
@@ -16,6 +18,7 @@ interface PlayerWithSalary {
   teamSlug: string;
   yearAcquired: number;
   salaryYear: number;
+  acquisitionType: string;
 }
 
 async function getLeagueYear(): Promise<number> {
@@ -42,6 +45,7 @@ async function getAllPlayers(leagueYear: number): Promise<PlayerWithSalary[]> {
   const results = await db
     .select({
       playerId: players.id,
+      contractId: contracts.id,
       playerName: players.name,
       position: players.position,
       salary2025: contracts.salary2025,
@@ -58,6 +62,7 @@ async function getAllPlayers(leagueYear: number): Promise<PlayerWithSalary[]> {
 
   return results.map((r) => ({
     playerId: r.playerId,
+    contractId: r.contractId,
     playerName: r.playerName,
     position: r.position,
     salary: calculateSalary(
@@ -72,11 +77,15 @@ async function getAllPlayers(leagueYear: number): Promise<PlayerWithSalary[]> {
     teamSlug: r.teamSlug,
     yearAcquired: r.yearAcquired,
     salaryYear: r.salaryYear,
+    acquisitionType: r.acquisitionType,
   }));
 }
 
 export default async function PlayerRegistryPage() {
   const leagueYear = await getLeagueYear();
+  const user = await getUser();
+  const isCommissioner = user?.user_metadata?.role === "commissioner";
+
   const [allPlayers, allTeams] = await Promise.all([
     getAllPlayers(leagueYear),
     getAllTeams(),
@@ -87,6 +96,7 @@ export default async function PlayerRegistryPage() {
       players={allPlayers}
       teams={allTeams}
       leagueYear={leagueYear}
+      isCommissioner={isCommissioner}
     />
   );
 }
