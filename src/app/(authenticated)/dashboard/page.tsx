@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { teams, contracts, players, leagueSettings, draftPicks } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { calculateSalary, calculateCapHit } from "@/lib/salary/engine";
+import { getDraftPickCapValue } from "@/lib/salary/rookie-scale";
 import { CAP_BY_YEAR } from "@/lib/constants";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
@@ -22,6 +23,7 @@ interface DraftPickData {
   id: number;
   round: number;
   originalTeamAbbr: string;
+  salary: number;
 }
 
 interface TeamRoster {
@@ -82,6 +84,7 @@ async function getAllTeamsWithRosters(leagueYear: number): Promise<TeamRoster[]>
           id: draftPicks.id,
           round: draftPicks.round,
           originalTeamId: draftPicks.originalTeamId,
+          salaryOverride: draftPicks.salaryOverride,
         })
         .from(draftPicks)
         .where(
@@ -132,11 +135,12 @@ async function getAllTeamsWithRosters(leagueYear: number): Promise<TeamRoster[]>
         playersByPosition[pos].sort((a, b) => b.salary - a.salary);
       }
 
-      // Format draft picks
+      // Format draft picks with salary values
       const formattedPicks: DraftPickData[] = teamDraftPicks.map(pick => ({
         id: pick.id,
         round: pick.round,
         originalTeamAbbr: teamAbbrMap.get(pick.originalTeamId) || "???",
+        salary: pick.salaryOverride ?? getDraftPickCapValue(pick.round),
       }));
 
       return {
@@ -267,6 +271,9 @@ export default async function DashboardPage() {
                                 ({pick.originalTeamAbbr})
                               </span>
                             )}
+                          </span>
+                          <span className="font-mono text-muted-foreground flex-shrink-0">
+                            ${pick.salary}
                           </span>
                         </div>
                       ))}
