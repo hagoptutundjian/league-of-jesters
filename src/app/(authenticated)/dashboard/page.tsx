@@ -225,16 +225,24 @@ export default async function DashboardPage() {
                               key={player.id}
                               className="flex items-center justify-between text-xs"
                             >
-                              <span className={`truncate pr-2 ${player.rosterStatus !== "active" ? "text-muted-foreground" : ""}`}>
+                              <span className={`truncate pr-2 ${
+                                player.rosterStatus === "active"
+                                  ? "text-blue-700 dark:text-blue-400 font-medium"
+                                  : "text-gray-400 dark:text-gray-500"
+                              }`}>
                                 {player.name}
                                 {player.rosterStatus === "practice_squad" && (
-                                  <span className="ml-1 text-muted-foreground">(PS)</span>
+                                  <span className="ml-1 text-gray-400 dark:text-gray-500">(PS)</span>
                                 )}
                                 {player.rosterStatus === "injured_reserve" && (
-                                  <span className="ml-1 text-destructive">(IR)</span>
+                                  <span className="ml-1 text-red-400 dark:text-red-500">(IR)</span>
                                 )}
                               </span>
-                              <span className="font-mono text-muted-foreground flex-shrink-0">
+                              <span className={`font-mono flex-shrink-0 ${
+                                player.rosterStatus === "active"
+                                  ? "text-blue-600 dark:text-blue-400"
+                                  : "text-gray-400 dark:text-gray-500"
+                              }`}>
                                 ${player.salary}
                               </span>
                             </div>
