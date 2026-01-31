@@ -61,7 +61,7 @@ export function AddPlayerForm({ teamSlug }: AddPlayerFormProps) {
 
   // Form fields
   const [salary, setSalary] = useState("");
-  const [acquisitionType, setAcquisitionType] = useState("free_agent");
+  const [acquisitionType, setAcquisitionType] = useState("waiver_wire");
   const [rosterStatus, setRosterStatus] = useState("active");
   const router = useRouter();
 
@@ -136,7 +136,7 @@ export function AddPlayerForm({ teamSlug }: AddPlayerFormProps) {
       toast.success(`${selectedPlayer.name} added to roster`);
       setSelectedPlayer(null);
       setSalary("");
-      setAcquisitionType("free_agent");
+      setAcquisitionType("waiver_wire");
       setRosterStatus("active");
       setOpen(false);
       router.refresh();
@@ -271,11 +271,9 @@ export function AddPlayerForm({ teamSlug }: AddPlayerFormProps) {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="free_agent">Free Agent</SelectItem>
-                  <SelectItem value="faab">FAAB</SelectItem>
                   <SelectItem value="rookie_draft">Rookie Draft</SelectItem>
-                  <SelectItem value="auction">Auction</SelectItem>
-                  <SelectItem value="trade">Trade</SelectItem>
+                  <SelectItem value="free_agent_auction">Free Agent Auction</SelectItem>
+                  <SelectItem value="waiver_wire">Waiver Wire</SelectItem>
                 </SelectContent>
               </Select>
             </div>
