@@ -3,6 +3,14 @@ import { db } from "@/lib/db";
 import { teams, contracts, players, draftPicks } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 
+// Position order: QB first, then WR, RB, TE
+const POSITION_ORDER: Record<string, number> = {
+  QB: 0,
+  WR: 1,
+  RB: 2,
+  TE: 3,
+};
+
 // GET - Get all tradeable assets for a team (players on roster + owned draft picks)
 export async function GET(
   request: Request,
@@ -51,10 +59,24 @@ export async function GET(
     .innerJoin(teams, eq(draftPicks.originalTeamId, teams.id))
     .where(and(eq(draftPicks.currentTeamId, teamId), eq(draftPicks.isUsed, false)));
 
+  // Sort players by position order (QB, WR, RB, TE), then by salary descending
+  const sortedPlayers = [...teamPlayers].sort((a, b) => {
+    const posA = POSITION_ORDER[a.position || ""] ?? 99;
+    const posB = POSITION_ORDER[b.position || ""] ?? 99;
+    if (posA !== posB) return posA - posB;
+    return Number(b.salary) - Number(a.salary);
+  });
+
+  // Sort picks by year, then by round
+  const sortedPicks = [...teamPicks].sort((a, b) => {
+    if (a.year !== b.year) return a.year - b.year;
+    return a.round - b.round;
+  });
+
   return NextResponse.json({
     teamId,
     teamName: team[0].name,
-    players: teamPlayers.map((p) => ({
+    players: sortedPlayers.map((p) => ({
       type: "player" as const,
       id: p.playerId,
       contractId: p.contractId,
@@ -64,7 +86,7 @@ export async function GET(
       salary: p.salary,
       label: `${p.playerName} (${p.position}) - $${Number(p.salary).toFixed(0)}`,
     })),
-    picks: teamPicks.map((p) => ({
+    picks: sortedPicks.map((p) => ({
       type: "draft_pick" as const,
       id: p.pickId,
       year: p.year,
