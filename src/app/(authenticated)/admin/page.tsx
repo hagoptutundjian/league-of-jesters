@@ -60,6 +60,17 @@ export default async function AdminPage() {
           </Card>
         </Link>
 
+        <Link href="/admin/free-agent-auction">
+          <Card className="transition-colors hover:bg-accent/50 border-green-500">
+            <CardHeader>
+              <CardTitle>Free Agent Auction</CardTitle>
+              <CardDescription>
+                Run the free agent auction and track results
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
+
         <Link href="/trades/new">
           <Card className="transition-colors hover:bg-accent/50">
             <CardHeader>
