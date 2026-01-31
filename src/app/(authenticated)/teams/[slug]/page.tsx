@@ -34,6 +34,7 @@ import { RosterActions } from "@/components/roster-actions";
 import { SalaryModeler, type ModelPlayer, type ModelDraftPick } from "@/components/salary-modeler";
 import { AddPlayerInline } from "@/components/add-player-inline";
 import { DraftPickActions } from "@/components/draft-pick-actions";
+import { AcquisitionTypeEditor, AcquisitionTypeDisplay } from "@/components/acquisition-type-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -253,6 +254,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
     yearAcquired: c.yearAcquired,
     rosterStatus: c.rosterStatus,
     salaryYear: c.salaryYear ?? 2025,
+    acquisitionType: c.acquisitionType as AcquisitionType,
   }));
 
   // Sort draft picks by round then year
@@ -309,6 +311,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
     player: "text-left text-xs md:text-lg",
     status: "text-right pl-2 md:pl-4 text-xs md:text-lg",
     yearAcq: "text-center text-xs md:text-lg",
+    acqType: "text-center text-xs md:text-sm",
     year: "text-right text-xs md:text-lg",
     actions: "text-right text-xs md:text-lg",
   };
@@ -419,6 +422,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                 <TableRow>
                   <TableHead className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950`}></TableHead>
                   <TableHead className={colStyles.yearAcq}></TableHead>
+                  <TableHead className={colStyles.acqType}></TableHead>
                   {displayYears.map((year) => (
                     <TableHead key={year} className={colStyles.year}>
                       {year}
@@ -432,6 +436,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                 <TableRow>
                   <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold`}>Cap</TableCell>
                   <TableCell className={colStyles.yearAcq}></TableCell>
+                  <TableCell className={colStyles.acqType}></TableCell>
                   {displayYears.map((year) => (
                     <TableCell key={year} className={colStyles.year}>
                       ${CAP_BY_YEAR[year] ?? 250}
@@ -443,6 +448,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                 <TableRow>
                   <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold`}>Salary</TableCell>
                   <TableCell className={colStyles.yearAcq}></TableCell>
+                  <TableCell className={colStyles.acqType}></TableCell>
                   {displayYears.map((year) => {
                     let total = 0;
                     // Add player salaries
@@ -476,6 +482,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                 <TableRow>
                   <TableCell className={`${colStyles.player} sticky left-0 bg-white dark:bg-slate-950 font-semibold`}>Space</TableCell>
                   <TableCell className={colStyles.yearAcq}></TableCell>
+                  <TableCell className={colStyles.acqType}></TableCell>
                   {displayYears.map((year) => {
                     const cap = CAP_BY_YEAR[year] ?? 250;
                     let total = 0;
@@ -552,6 +559,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                       Player
                     </TableHead>
                     <TableHead className={colStyles.yearAcq}>Year</TableHead>
+                    <TableHead className={colStyles.acqType}>Acq Type</TableHead>
                     {displayYears.map((year) => (
                       <TableHead key={year} className={colStyles.year}>
                         {year}
@@ -573,6 +581,16 @@ export default async function TeamDetailPage({ params }: PageProps) {
                       </TableCell>
                       <TableCell className={`${colStyles.yearAcq} ${cellBgClass}`}>
                         {contract.yearAcquired}
+                      </TableCell>
+                      <TableCell className={`${colStyles.acqType} ${cellBgClass}`}>
+                        {isCommissioner ? (
+                          <AcquisitionTypeEditor
+                            contractId={contract.id}
+                            currentType={contract.acquisitionType}
+                          />
+                        ) : (
+                          <AcquisitionTypeDisplay type={contract.acquisitionType} />
+                        )}
                       </TableCell>
                       {displayYears.map((year) => {
                         const override = overrideMap
@@ -675,6 +693,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                     Pick
                   </TableHead>
                   <TableHead className={colStyles.yearAcq}>Via</TableHead>
+                  <TableHead className={colStyles.acqType}></TableHead>
                   {displayYears.map((year) => (
                     <TableHead key={year} className={colStyles.year}>
                       {year}
@@ -711,6 +730,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
                           <span className="text-muted-foreground"><span className="hidden md:inline">via </span>{originalTeamName}</span>
                         )}
                       </TableCell>
+                      <TableCell className={`${colStyles.acqType} ${rowColorClass}`}></TableCell>
                       {displayYears.map((year) => {
                         // Only show salary if this pick is for this year
                         const showSalary = pick.year === year;
