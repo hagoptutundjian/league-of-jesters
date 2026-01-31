@@ -92,6 +92,17 @@ export default async function AdminPage() {
             </CardHeader>
           </Card>
         </Link>
+
+        <Link href="/admin/export">
+          <Card className="transition-colors hover:bg-accent/50">
+            <CardHeader>
+              <CardTitle>Data Export</CardTitle>
+              <CardDescription>
+                Download CSV files with rosters, picks, trades, and more
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        </Link>
       </div>
     </div>
   );
