@@ -15,6 +15,13 @@
       "when": 1769832676892,
       "tag": "0001_panoramic_electro",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1769835235932,
+      "tag": "0002_long_nextwave",
+      "breakpoints": true
     }
   ]
 }
