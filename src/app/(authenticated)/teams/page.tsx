@@ -2,7 +2,7 @@ import { db } from "@/lib/db";
 import { teams, contracts } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { calculateSalary, calculateCapHit } from "@/lib/salary/engine";
-import { CAP_BY_YEAR, SALARY_YEARS } from "@/lib/constants";
+import { CAP_BY_YEAR, SALARY_YEARS, type AcquisitionType } from "@/lib/constants";
 import Link from "next/link";
 import {
   Table,
@@ -25,6 +25,8 @@ async function getTeamsOverview() {
         .select({
           salary2025: contracts.salary2025,
           yearAcquired: contracts.yearAcquired,
+          salaryYear: contracts.salaryYear,
+          acquisitionType: contracts.acquisitionType,
           rosterStatus: contracts.rosterStatus,
         })
         .from(contracts)
@@ -40,7 +42,10 @@ async function getTeamsOverview() {
           const salary = calculateSalary(
             Number(c.salary2025),
             c.yearAcquired,
-            year
+            year,
+            undefined,
+            c.salaryYear,
+            c.acquisitionType as AcquisitionType
           );
           totalSalary += calculateCapHit(salary, c.rosterStatus);
         }
