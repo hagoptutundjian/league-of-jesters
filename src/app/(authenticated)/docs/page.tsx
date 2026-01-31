@@ -105,31 +105,6 @@ export default async function LeagueDocsPage() {
           );
         })}
       </div>
-
-      {commissioner && (
-        <Card className="border-dashed">
-          <CardHeader>
-            <CardTitle className="text-sm font-medium">Commissioner Note</CardTitle>
-          </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            <p>
-              To add or update document links, go to{" "}
-              <Link href="/admin/settings" className="text-primary hover:underline">
-                League Settings
-              </Link>{" "}
-              and add custom settings with these keys:
-            </p>
-            <ul className="list-disc list-inside mt-2 space-y-1 font-mono text-xs">
-              {documents.map((doc) => (
-                <li key={doc.settingKey}>{doc.settingKey}</li>
-              ))}
-            </ul>
-            <p className="mt-2">
-              The value should be the full URL to your Google Doc, Notion page, or other document.
-            </p>
-          </CardContent>
-        </Card>
-      )}
     </div>
   );
 }
