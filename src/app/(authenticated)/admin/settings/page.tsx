@@ -221,6 +221,29 @@ export default async function AdminSettingsPage() {
         </CardContent>
       </Card>
 
+      {/* League Documents */}
+      <Card>
+        <CardHeader>
+          <CardTitle>League Documents</CardTitle>
+          <CardDescription>
+            Add URLs for league documents that appear on the League Docs page
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="text-sm text-muted-foreground">
+            <p>Use these keys to add document links:</p>
+            <ul className="list-disc list-inside mt-2 space-y-1 font-mono text-xs">
+              <li>doc_constitution_url - League Constitution</li>
+              <li>doc_salary_rules_url - Salary & Cap Rules</li>
+              <li>doc_draft_rules_url - Draft Rules</li>
+            </ul>
+            <p className="mt-2">
+              Set the value to the full URL of your Google Doc, Notion page, or other document.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Add New Setting */}
       <Card>
         <CardHeader>
