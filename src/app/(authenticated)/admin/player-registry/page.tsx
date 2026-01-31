@@ -14,6 +14,7 @@ import { getPositionColor } from "@/lib/position-colors";
 import { AddMasterPlayer } from "@/components/add-master-player";
 import { BulkImportPlayers } from "@/components/bulk-import-players";
 import { PlayerRegistryTable } from "@/components/player-registry-table";
+import { getCurrentSeason } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -31,22 +32,41 @@ async function getAllMasterPlayers() {
     .where(eq(players.isActive, true))
     .orderBy(players.name);
 
-  // Get current team assignments for each rostered player
+  // Get current team assignments and salary info for each rostered player
   const activeContracts = await db
     .select({
       playerId: contracts.playerId,
+      contractId: contracts.id,
       teamName: teams.name,
+      salary2025: contracts.salary2025,
+      salaryYear: contracts.salaryYear,
     })
     .from(contracts)
     .innerJoin(teams, eq(contracts.teamId, teams.id))
     .where(eq(contracts.isActive, true));
 
-  const teamMap = new Map(activeContracts.map((c) => [c.playerId, c.teamName]));
+  const contractMap = new Map(
+    activeContracts.map((c) => [
+      c.playerId,
+      {
+        teamName: c.teamName,
+        contractId: c.contractId,
+        salary: Number(c.salary2025),
+        salaryYear: c.salaryYear,
+      },
+    ])
+  );
 
-  return allPlayers.map((p) => ({
-    ...p,
-    currentTeam: teamMap.get(p.id) || null,
-  }));
+  return allPlayers.map((p) => {
+    const contractInfo = contractMap.get(p.id);
+    return {
+      ...p,
+      currentTeam: contractInfo?.teamName || null,
+      contractId: contractInfo?.contractId || null,
+      salary: contractInfo?.salary || null,
+      salaryYear: contractInfo?.salaryYear || null,
+    };
+  });
 }
 
 export default async function PlayerRegistryPage() {
@@ -54,6 +74,7 @@ export default async function PlayerRegistryPage() {
   if (!commissioner) redirect("/dashboard");
 
   const masterPlayers = await getAllMasterPlayers();
+  const currentSeason = await getCurrentSeason();
 
   // Group players by position for summary
   const byPosition = {
@@ -110,7 +131,7 @@ export default async function PlayerRegistryPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <PlayerRegistryTable players={masterPlayers} />
+          <PlayerRegistryTable players={masterPlayers} currentSeason={currentSeason} />
         </CardContent>
       </Card>
     </div>
