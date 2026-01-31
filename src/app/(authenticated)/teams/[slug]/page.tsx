@@ -31,7 +31,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { RosterActions } from "@/components/roster-actions";
-import { SalaryModeler, type ModelPlayer } from "@/components/salary-modeler";
+import { SalaryModeler, type ModelPlayer, type ModelDraftPick } from "@/components/salary-modeler";
 import { AddPlayerInline } from "@/components/add-player-inline";
 import { DraftPickActions } from "@/components/draft-pick-actions";
 
@@ -260,6 +260,17 @@ export default async function TeamDetailPage({ params }: PageProps) {
     if (a.round !== b.round) return a.round - b.round;
     return a.year - b.year;
   });
+
+  // Prepare draft picks for salary modeler
+  const modelerDraftPicks: ModelDraftPick[] = teamDraftPicks.map((dp) => ({
+    id: dp.id,
+    year: dp.year,
+    round: dp.round,
+    pickNumber: dp.pickNumber,
+    originalTeamId: dp.originalTeamId,
+    originalTeamName: dp.originalTeamId !== currentTeam.id ? teamNameMap.get(dp.originalTeamId) : undefined,
+    salaryOverride: dp.salaryOverride,
+  }));
 
   function getRoundLabel(round: number) {
     switch (round) {
@@ -631,7 +642,13 @@ export default async function TeamDetailPage({ params }: PageProps) {
       })}
 
       {/* Salary Modeler */}
-      {canEdit && <SalaryModeler players={modelerPlayers} />}
+      {canEdit && (
+        <SalaryModeler
+          players={modelerPlayers}
+          draftPicks={modelerDraftPicks}
+          currentSeason={currentSeason}
+        />
+      )}
 
       {/* Draft Picks */}
       <Card className="border-l-4 border-l-slate-500">
