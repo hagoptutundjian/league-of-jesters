@@ -288,6 +288,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
   const colPixels = {
     player: 120, // Smaller for mobile, CSS will handle overflow
     yearAcq: 50,
+    acqType: 100,
     year: 60,
     status: 70,
     actions: 60,
@@ -298,6 +299,7 @@ export default async function TeamDetailPage({ params }: PageProps) {
     <colgroup>
       <col style={{ width: colPixels.player }} />
       <col style={{ width: colPixels.yearAcq }} />
+      <col style={{ width: colPixels.acqType }} />
       {displayYears.map((year) => (
         <col key={year} style={{ width: colPixels.year }} />
       ))}
