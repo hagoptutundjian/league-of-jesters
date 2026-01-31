@@ -16,6 +16,7 @@ const navLinks = [
   { href: "/free-agent-auction", label: "FA Auction" },
   { href: "/trades", label: "Trades" },
   { href: "/players", label: "Salaries" },
+  { href: "/docs", label: "League Docs" },
 ];
 
 interface NavProps {
