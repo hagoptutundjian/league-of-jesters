@@ -44,7 +44,7 @@ export function Nav({ userEmail, isCommissioner, teamSlug }: NavProps) {
         <div className="flex items-center gap-6">
           <Link href="/dashboard" className="flex items-center gap-2">
             <Image
-              src="/jester-logo.svg"
+              src="/jester-logo.png"
               alt="League of Jesters"
               width={32}
               height={32}
