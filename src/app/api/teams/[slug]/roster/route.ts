@@ -10,7 +10,7 @@ import {
 import { eq, and } from "drizzle-orm";
 import { getUser } from "@/lib/auth/server";
 import { calculateSalary, calculateCapHit } from "@/lib/salary/engine";
-import { CAP_BY_YEAR } from "@/lib/constants";
+import { CAP_BY_YEAR, type AcquisitionType } from "@/lib/constants";
 
 async function getTeamAndAuth(slug: string) {
   const user = await getUser();
@@ -173,7 +173,10 @@ export async function DELETE(
   const salaryAtDrop = calculateSalary(
     Number(currentContract.salary2025),
     currentContract.yearAcquired,
-    currentYear
+    currentYear,
+    undefined,
+    undefined,
+    currentContract.acquisitionType as AcquisitionType
   );
 
   // Deactivate the contract
