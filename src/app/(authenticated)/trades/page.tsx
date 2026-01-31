@@ -15,6 +15,7 @@ import { DeleteTradeButton } from "@/components/delete-trade-button";
 import { ImportTrades } from "@/components/import-trades";
 import { ArrowRightLeft, Plus, Trophy } from "lucide-react";
 import { TradeLeaderboard } from "@/components/trade-leaderboard";
+import { TradePartnersLeaderboard } from "@/components/trade-partners-leaderboard";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,14 @@ interface TradeLeaderboardEntry {
   teamId: number;
   teamName: string;
   teamAbbr: string;
+  tradeCount: number;
+}
+
+interface TradePartnerEntry {
+  team1Name: string;
+  team1Abbr: string;
+  team2Name: string;
+  team2Abbr: string;
   tradeCount: number;
 }
 
@@ -164,10 +173,43 @@ async function getTradeLeaderboards() {
     .orderBy(desc(sql`COUNT(DISTINCT ${tradeParticipants.tradeId})`))
     .limit(12);
 
+  // Most common trade partners - find pairs of teams that trade together most
+  // We need to self-join tradeParticipants to find pairs
+  const tradePartners = await db.execute<{
+    team1_name: string;
+    team1_abbr: string;
+    team2_name: string;
+    team2_abbr: string;
+    trade_count: string;
+  }>(sql`
+    SELECT
+      t1.name as team1_name,
+      t1.abbreviation as team1_abbr,
+      t2.name as team2_name,
+      t2.abbreviation as team2_abbr,
+      COUNT(DISTINCT tp1.trade_id) as trade_count
+    FROM trade_participants tp1
+    JOIN trade_participants tp2 ON tp1.trade_id = tp2.trade_id AND tp1.team_id < tp2.team_id
+    JOIN teams t1 ON tp1.team_id = t1.id
+    JOIN teams t2 ON tp2.team_id = t2.id
+    GROUP BY t1.id, t1.name, t1.abbreviation, t2.id, t2.name, t2.abbreviation
+    ORDER BY trade_count DESC
+    LIMIT 12
+  `);
+
+  const tradePartnersList: TradePartnerEntry[] = tradePartners.map((row) => ({
+    team1Name: row.team1_name,
+    team1Abbr: row.team1_abbr,
+    team2Name: row.team2_name,
+    team2Abbr: row.team2_abbr,
+    tradeCount: parseInt(row.trade_count, 10),
+  }));
+
   return {
     allTime: allTimeLeaderboard as TradeLeaderboardEntry[],
     currentSeason: currentSeasonLeaderboard as TradeLeaderboardEntry[],
     currentSeasonYear: currentSeason,
+    tradePartners: tradePartnersList,
   };
 }
 
@@ -256,19 +298,22 @@ export default async function TradesPage() {
 
       {/* Leaderboards */}
       {allTrades.length > 0 && (
-        <div className="grid md:grid-cols-2 gap-4">
-          <TradeLeaderboard
-            title="All-Time Trade Leaders"
-            entries={leaderboards.allTime}
-            icon="trophy"
-            accentColor="yellow"
-          />
-          <TradeLeaderboard
-            title={`${leaderboards.currentSeasonYear} Season Leaders`}
-            entries={leaderboards.currentSeason}
-            icon="arrows"
-            accentColor="blue"
-          />
+        <div className="space-y-4">
+          <div className="grid md:grid-cols-2 gap-4">
+            <TradeLeaderboard
+              title="All-Time Trade Leaders"
+              entries={leaderboards.allTime}
+              icon="trophy"
+              accentColor="yellow"
+            />
+            <TradeLeaderboard
+              title={`${leaderboards.currentSeasonYear} Season Leaders`}
+              entries={leaderboards.currentSeason}
+              icon="arrows"
+              accentColor="blue"
+            />
+          </div>
+          <TradePartnersLeaderboard entries={leaderboards.tradePartners} />
         </div>
       )}
 
