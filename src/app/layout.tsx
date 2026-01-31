@@ -17,6 +17,24 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "League Of Jesters",
   description: "Fantasy Football Salary Cap League Manager",
+  openGraph: {
+    title: "League Of Jesters",
+    description: "Fantasy Football Salary Cap League Manager",
+    images: [
+      {
+        url: "/og-image.svg",
+        width: 1200,
+        height: 630,
+        alt: "League Of Jesters - Jester Hat Logo",
+      },
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "League Of Jesters",
+    description: "Fantasy Football Salary Cap League Manager",
+    images: ["/og-image.svg"],
+  },
 };
 
 export default function RootLayout({
