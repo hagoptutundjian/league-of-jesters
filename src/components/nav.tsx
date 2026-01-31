@@ -8,6 +8,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useState } from "react";
+import Image from "next/image";
 
 const navLinks = [
   { href: "/dashboard", label: "Dashboard" },
@@ -41,8 +42,15 @@ export function Nav({ userEmail, isCommissioner, teamSlug }: NavProps) {
     <header className="border-b bg-card">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-4">
         <div className="flex items-center gap-6">
-          <Link href="/dashboard" className="text-lg font-bold tracking-tight">
-            LOJ
+          <Link href="/dashboard" className="flex items-center gap-2">
+            <Image
+              src="/jester-logo.svg"
+              alt="League of Jesters"
+              width={32}
+              height={32}
+              className="h-8 w-8"
+            />
+            <span className="text-lg font-bold tracking-tight hidden sm:inline">LOJ</span>
           </Link>
           {/* Desktop nav */}
           <nav className="hidden items-center gap-1 md:flex">
