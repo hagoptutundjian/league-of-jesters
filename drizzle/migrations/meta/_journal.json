@@ -8,6 +8,13 @@
       "when": 1769736910351,
       "tag": "0000_add_year_acquired_to_players",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1769832676892,
+      "tag": "0001_panoramic_electro",
+      "breakpoints": true
     }
   ]
 }
