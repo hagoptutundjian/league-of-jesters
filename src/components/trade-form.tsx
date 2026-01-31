@@ -440,17 +440,15 @@ export function TradeForm({ teams, currentSeason }: TradeFormProps) {
                             return (
                               <div
                                 key={`${asset.type}-${asset.id}`}
-                                className={`flex items-center gap-2 p-2 rounded-md border cursor-pointer transition-colors ${
+                                className={`flex items-center gap-2 p-2 rounded-md border transition-colors ${
                                   isSelected
                                     ? "bg-primary/10 border-primary"
                                     : "hover:bg-muted"
                                 }`}
-                                onClick={() => toggleAsset(index, asset)}
                               >
                                 <Checkbox
                                   checked={isSelected}
                                   onCheckedChange={() => toggleAsset(index, asset)}
-                                  onClick={(e) => e.stopPropagation()}
                                 />
                                 <div className="flex-1 min-w-0">
                                   {isPlayer && playerAsset ? (
