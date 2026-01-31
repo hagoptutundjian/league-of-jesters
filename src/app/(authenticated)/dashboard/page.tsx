@@ -3,7 +3,7 @@ import { teams, contracts, players, leagueSettings, draftPicks } from "@/lib/db/
 import { eq, and } from "drizzle-orm";
 import { calculateSalary, calculateCapHit } from "@/lib/salary/engine";
 import { getDraftPickCapValue } from "@/lib/salary/rookie-scale";
-import { CAP_BY_YEAR } from "@/lib/constants";
+import { CAP_BY_YEAR, type AcquisitionType } from "@/lib/constants";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { getPositionColor } from "@/lib/position-colors";
@@ -70,6 +70,7 @@ async function getAllTeamsWithRosters(leagueYear: number): Promise<TeamRoster[]>
           salary2025: contracts.salary2025,
           yearAcquired: contracts.yearAcquired,
           salaryYear: contracts.salaryYear,
+          acquisitionType: contracts.acquisitionType,
           rosterStatus: contracts.rosterStatus,
         })
         .from(contracts)
@@ -111,7 +112,8 @@ async function getAllTeamsWithRosters(leagueYear: number): Promise<TeamRoster[]>
           c.yearAcquired,
           leagueYear,
           0.15,
-          c.salaryYear
+          c.salaryYear,
+          c.acquisitionType as AcquisitionType
         );
         const capHit = calculateCapHit(salary, c.rosterStatus);
         totalSalary += capHit;
