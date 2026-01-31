@@ -71,17 +71,6 @@ export default async function AdminPage() {
           </Card>
         </Link>
 
-        <Link href="/admin/roster">
-          <Card className="transition-colors hover:bg-accent/50">
-            <CardHeader>
-              <CardTitle>Roster Management</CardTitle>
-              <CardDescription>
-                Add, drop, or modify players on any team
-              </CardDescription>
-            </CardHeader>
-          </Card>
-        </Link>
-
         <Link href="/admin/settings">
           <Card className="transition-colors hover:bg-accent/50">
             <CardHeader>
