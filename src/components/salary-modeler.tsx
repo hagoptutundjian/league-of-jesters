@@ -20,15 +20,15 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
-const CAP_BY_YEAR: Record<number, number> = {
-  2025: 300,
-  2026: 275,
-  2027: 250,
-  2028: 250,
-  2029: 250,
-  2030: 250,
-};
+import {
+  CAP_BY_YEAR,
+  ESCALATION_RATE,
+  LOYALTY_BUMP_YEAR,
+  LOYALTY_BUMP_AMOUNT,
+  FREE_AGENT_MINIMUM,
+  WAIVER_WIRE_TYPES,
+  type AcquisitionType,
+} from "@/lib/constants";
 
 const DRAFT_PICK_VALUES: Record<number, number> = {
   1: 10,
@@ -37,9 +37,6 @@ const DRAFT_PICK_VALUES: Record<number, number> = {
   4: 1,
 };
 
-const ESCALATION_RATE = 0.15;
-const LOYALTY_BUMP_YEAR = 5;
-const LOYALTY_BUMP_AMOUNT = 5;
 const DEFAULT_SALARY_YEAR = 2025;
 
 /**
@@ -52,17 +49,18 @@ function isLoyaltyBumpYear(yearAcquired: number, targetYear: number): boolean {
 }
 
 /**
- * Calculate salary for a given year, using salaryYear as the base.
- * The baseSalary is the salary for salaryYear, and we escalate from there.
+ * Calculate salary for a given year - matches the main engine exactly.
  */
-function calcSalary(baseSalary: number, yearAcquired: number, targetYear: number, salaryYear: number = DEFAULT_SALARY_YEAR): number {
-  // For the salary year, just return the base salary (plus bump if applicable)
+function calcSalary(
+  baseSalary: number,
+  yearAcquired: number,
+  targetYear: number,
+  salaryYear: number = DEFAULT_SALARY_YEAR,
+  acquisitionType?: AcquisitionType
+): number {
+  // For the salary year, just return the base salary as entered
   if (targetYear === salaryYear) {
-    const salary = Math.ceil(baseSalary);
-    if (isLoyaltyBumpYear(yearAcquired, targetYear)) {
-      return salary + LOYALTY_BUMP_AMOUNT;
-    }
-    return salary;
+    return Math.ceil(baseSalary);
   }
 
   // For years before the salary year, return 0
@@ -74,15 +72,23 @@ function calcSalary(baseSalary: number, yearAcquired: number, targetYear: number
   const yearsFromBase = targetYear - salaryYear;
   let salary = baseSalary;
 
-  // Check if salaryYear itself is a bump year
-  if (isLoyaltyBumpYear(yearAcquired, salaryYear)) {
-    salary += LOYALTY_BUMP_AMOUNT;
-  }
+  // Check if this acquisition type is subject to the $5 minimum rule
+  const isWaiverWire = acquisitionType && WAIVER_WIRE_TYPES.includes(acquisitionType);
 
   for (let y = 1; y <= yearsFromBase; y++) {
     const currentYear = salaryYear + y;
+
+    // Waiver wire minimum rule: if salary is below $5, bump it to $5 before escalation
+    if (isWaiverWire && salary < FREE_AGENT_MINIMUM) {
+      salary = FREE_AGENT_MINIMUM;
+    }
+
+    // Apply 15% escalation
     salary = salary * (1 + ESCALATION_RATE);
+    // Round up after each year's escalation
     salary = Math.ceil(salary);
+
+    // Check if this year is year 5 of the contract
     if (isLoyaltyBumpYear(yearAcquired, currentYear)) {
       salary += LOYALTY_BUMP_AMOUNT;
     }
@@ -92,8 +98,8 @@ function calcSalary(baseSalary: number, yearAcquired: number, targetYear: number
 }
 
 function calcCapHit(salary: number, status: string): number {
-  if (status === "practice_squad") return Math.round(salary * 0.25);
-  if (status === "injured_reserve") return Math.round(salary * 0.5);
+  if (status === "practice_squad") return Math.ceil(salary * 0.25);
+  if (status === "injured_reserve") return Math.ceil(salary * 0.5);
   return salary;
 }
 
@@ -105,6 +111,7 @@ export interface ModelPlayer {
   yearAcquired: number;
   rosterStatus: string;
   salaryYear?: number;
+  acquisitionType?: AcquisitionType;
 }
 
 export interface ModelDraftPick {
@@ -131,6 +138,22 @@ export function SalaryModeler({ players, draftPicks = [], currentSeason = 2025 }
 
   // Only show current year + next 2 years
   const displayYears = [currentSeason, currentSeason + 1, currentSeason + 2];
+
+  // Sort players by position then by current season salary (descending) - matches page order
+  const sortedPlayers = useMemo(() => {
+    const positionOrder = ["QB", "WR", "RB", "TE"];
+    return [...players].sort((a, b) => {
+      // First sort by position
+      const posA = positionOrder.indexOf(a.position || "");
+      const posB = positionOrder.indexOf(b.position || "");
+      if (posA !== posB) return posA - posB;
+
+      // Then sort by salary descending
+      const salaryA = calcSalary(a.salary2025, a.yearAcquired, currentSeason, a.salaryYear, a.acquisitionType);
+      const salaryB = calcSalary(b.salary2025, b.yearAcquired, currentSeason, b.salaryYear, b.acquisitionType);
+      return salaryB - salaryA;
+    });
+  }, [players, currentSeason]);
 
   const toggleDropPlayer = (contractId: number) => {
     setDroppedPlayerIds((prev) => {
@@ -182,7 +205,7 @@ export function SalaryModeler({ players, draftPicks = [], currentSeason = 2025 }
 
       // Calculate player salaries
       for (const p of players) {
-        const salary = calcSalary(p.salary2025, p.yearAcquired, year, p.salaryYear);
+        const salary = calcSalary(p.salary2025, p.yearAcquired, year, p.salaryYear, p.acquisitionType);
         const currentHit = calcCapHit(salary, p.rosterStatus);
         currentTotal += currentHit;
 
@@ -355,11 +378,11 @@ export function SalaryModeler({ players, draftPicks = [], currentSeason = 2025 }
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {players.map((p) => {
+                  {sortedPlayers.map((p) => {
                     const isDropped = droppedPlayerIds.has(p.contractId);
                     const effectiveStatus =
                       statusChanges.get(p.contractId) ?? p.rosterStatus;
-                    const salary = calcSalary(p.salary2025, p.yearAcquired, currentSeason, p.salaryYear);
+                    const salary = calcSalary(p.salary2025, p.yearAcquired, currentSeason, p.salaryYear, p.acquisitionType);
                     const capHit = calcCapHit(salary, effectiveStatus);
 
                     return (
