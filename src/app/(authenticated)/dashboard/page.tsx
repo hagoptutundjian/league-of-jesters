@@ -1,5 +1,5 @@
 import { db } from "@/lib/db";
-import { teams, contracts, players, leagueSettings } from "@/lib/db/schema";
+import { teams, contracts, players, leagueSettings, draftPicks } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { calculateSalary, calculateCapHit } from "@/lib/salary/engine";
 import { CAP_BY_YEAR } from "@/lib/constants";
@@ -18,6 +18,12 @@ interface PlayerData {
   rosterStatus: string;
 }
 
+interface DraftPickData {
+  id: number;
+  round: number;
+  originalTeamAbbr: string;
+}
+
 interface TeamRoster {
   id: number;
   name: string;
@@ -32,6 +38,7 @@ interface TeamRoster {
     WR: PlayerData[];
     TE: PlayerData[];
   };
+  draftPicks: DraftPickData[];
 }
 
 async function getLeagueYear(): Promise<number> {
@@ -47,6 +54,9 @@ async function getLeagueYear(): Promise<number> {
 async function getAllTeamsWithRosters(leagueYear: number): Promise<TeamRoster[]> {
   const allTeams = await db.select().from(teams).orderBy(teams.name);
   const cap = CAP_BY_YEAR[leagueYear] ?? 275;
+
+  // Create a map of team IDs to abbreviations for draft pick display
+  const teamAbbrMap = new Map(allTeams.map(t => [t.id, t.abbreviation]));
 
   const teamsWithRosters = await Promise.all(
     allTeams.map(async (team) => {
@@ -65,6 +75,23 @@ async function getAllTeamsWithRosters(leagueYear: number): Promise<TeamRoster[]>
         .where(
           and(eq(contracts.teamId, team.id), eq(contracts.isActive, true))
         );
+
+      // Get current year draft picks owned by this team
+      const teamDraftPicks = await db
+        .select({
+          id: draftPicks.id,
+          round: draftPicks.round,
+          originalTeamId: draftPicks.originalTeamId,
+        })
+        .from(draftPicks)
+        .where(
+          and(
+            eq(draftPicks.currentTeamId, team.id),
+            eq(draftPicks.year, leagueYear),
+            eq(draftPicks.isUsed, false)
+          )
+        )
+        .orderBy(draftPicks.round);
 
       const playersByPosition: TeamRoster["players"] = {
         QB: [],
@@ -105,6 +132,13 @@ async function getAllTeamsWithRosters(leagueYear: number): Promise<TeamRoster[]>
         playersByPosition[pos].sort((a, b) => b.salary - a.salary);
       }
 
+      // Format draft picks
+      const formattedPicks: DraftPickData[] = teamDraftPicks.map(pick => ({
+        id: pick.id,
+        round: pick.round,
+        originalTeamAbbr: teamAbbrMap.get(pick.originalTeamId) || "???",
+      }));
+
       return {
         id: team.id,
         name: team.name,
@@ -114,6 +148,7 @@ async function getAllTeamsWithRosters(leagueYear: number): Promise<TeamRoster[]>
         capSpace: cap - totalSalary,
         salaryCap: cap,
         players: playersByPosition,
+        draftPicks: formattedPicks,
       };
     })
   );
@@ -149,10 +184,10 @@ export default async function DashboardPage() {
                   <div className="flex items-center justify-between">
                     <span className="font-bold text-sm truncate">{team.name}</span>
                     <Badge
-                      variant={team.capSpace >= 0 ? "secondary" : "destructive"}
-                      className="text-xs"
+                      variant={team.capSpace >= 0 ? "default" : "destructive"}
+                      className={`text-xs ${team.capSpace >= 0 ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200" : ""}`}
                     >
-                      ${team.capSpace}
+                      ${team.capSpace >= 0 ? team.capSpace : Math.abs(team.capSpace)}
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground mt-0.5">
@@ -207,6 +242,37 @@ export default async function DashboardPage() {
                     </div>
                   );
                 })}
+
+                {/* Draft Picks Section */}
+                {team.draftPicks.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <span className="inline-flex items-center rounded px-1.5 py-0.5 text-xs font-semibold bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+                        Picks
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        ({team.draftPicks.length})
+                      </span>
+                    </div>
+                    <div className="space-y-0.5">
+                      {team.draftPicks.map((pick) => (
+                        <div
+                          key={pick.id}
+                          className="flex items-center justify-between text-xs"
+                        >
+                          <span>
+                            R{pick.round}
+                            {pick.originalTeamAbbr !== team.abbreviation && (
+                              <span className="ml-1 text-muted-foreground">
+                                ({pick.originalTeamAbbr})
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}
