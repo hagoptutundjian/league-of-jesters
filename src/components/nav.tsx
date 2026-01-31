@@ -93,9 +93,15 @@ export function Nav({ userEmail, isCommissioner, teamSlug }: NavProps) {
             </span>
           )}
           <ThemeToggle />
-          <Button variant="ghost" size="sm" onClick={handleSignOut} className="hidden md:inline-flex">
-            Sign Out
-          </Button>
+          {userEmail ? (
+            <Button variant="ghost" size="sm" onClick={handleSignOut} className="hidden md:inline-flex">
+              Sign Out
+            </Button>
+          ) : (
+            <Button variant="ghost" size="sm" asChild className="hidden md:inline-flex">
+              <Link href="/login">Sign In</Link>
+            </Button>
+          )}
           {/* Mobile hamburger */}
           <button
             className="md:hidden p-2 rounded-md hover:bg-accent"
@@ -171,18 +177,28 @@ export function Nav({ userEmail, isCommissioner, teamSlug }: NavProps) {
             </Link>
           )}
           <div className="border-t pt-2 mt-2">
-            {userEmail && (
-              <p className="px-3 py-1 text-sm text-muted-foreground">{userEmail}</p>
+            {userEmail ? (
+              <>
+                <p className="px-3 py-1 text-sm text-muted-foreground">{userEmail}</p>
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleSignOut();
+                  }}
+                  className="block w-full text-left rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent"
+                >
+                  Sign Out
+                </button>
+              </>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="block rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent"
+              >
+                Sign In
+              </Link>
             )}
-            <button
-              onClick={() => {
-                setMobileMenuOpen(false);
-                handleSignOut();
-              }}
-              className="block w-full text-left rounded-md px-3 py-2 text-base font-medium text-muted-foreground hover:bg-accent"
-            >
-              Sign Out
-            </button>
           </div>
         </nav>
       </div>
