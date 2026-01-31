@@ -329,6 +329,32 @@ export const rookieDraftHistory = pgTable(
   ]
 );
 
+export const freeAgentAuctionHistory = pgTable(
+  "free_agent_auction_history",
+  {
+    id: serial("id").primaryKey(),
+    year: integer("year").notNull(),
+    pickOrder: integer("pick_order").notNull(), // Order within the auction (1, 2, 3...)
+    playerId: integer("player_id")
+      .notNull()
+      .references(() => players.id),
+    playerName: text("player_name").notNull(),
+    position: positionEnum("position"),
+    teamId: integer("team_id")
+      .notNull()
+      .references(() => teams.id),
+    salary: numeric("salary", { precision: 10, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("uq_fa_auction_pick").on(table.year, table.pickOrder),
+    index("idx_fa_auction_year").on(table.year),
+    index("idx_fa_auction_team").on(table.teamId),
+  ]
+);
+
 // ============================================================
 // RELATIONS
 // ============================================================
@@ -443,6 +469,20 @@ export const rookieDraftHistoryRelations = relations(
     }),
     player: one(players, {
       fields: [rookieDraftHistory.playerId],
+      references: [players.id],
+    }),
+  })
+);
+
+export const freeAgentAuctionHistoryRelations = relations(
+  freeAgentAuctionHistory,
+  ({ one }) => ({
+    team: one(teams, {
+      fields: [freeAgentAuctionHistory.teamId],
+      references: [teams.id],
+    }),
+    player: one(players, {
+      fields: [freeAgentAuctionHistory.playerId],
       references: [players.id],
     }),
   })
