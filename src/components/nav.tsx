@@ -14,7 +14,7 @@ const navLinks = [
   { href: "/teams", label: "Teams" },
   { href: "/rookie-draft", label: "Rookie Draft" },
   { href: "/trades", label: "Trades" },
-  { href: "/players", label: "Players" },
+  { href: "/players", label: "Salaries" },
 ];
 
 interface NavProps {
