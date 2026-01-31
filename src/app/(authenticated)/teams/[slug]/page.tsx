@@ -10,7 +10,7 @@ import {
   type DraftPickCapHit,
 } from "@/lib/salary/engine";
 import { getDraftPickCapValue } from "@/lib/salary/rookie-scale";
-import { CAP_BY_YEAR } from "@/lib/constants";
+import { CAP_BY_YEAR, type AcquisitionType } from "@/lib/constants";
 import { getCurrentSeason, getSalaryYearsForDisplay } from "@/lib/settings";
 import { getUser } from "@/lib/auth/server";
 import { notFound } from "next/navigation";
@@ -207,8 +207,8 @@ export default async function TeamDetailPage({ params }: PageProps) {
     players: teamContracts
       .filter((c) => c.position === pos)
       .sort((a, b) => {
-        const salaryA = calculateSalary(Number(a.salary2025), a.yearAcquired, currentSeason, undefined, a.salaryYear);
-        const salaryB = calculateSalary(Number(b.salary2025), b.yearAcquired, currentSeason, undefined, b.salaryYear);
+        const salaryA = calculateSalary(Number(a.salary2025), a.yearAcquired, currentSeason, undefined, a.salaryYear, a.acquisitionType as AcquisitionType);
+        const salaryB = calculateSalary(Number(b.salary2025), b.yearAcquired, currentSeason, undefined, b.salaryYear, b.acquisitionType as AcquisitionType);
         return salaryB - salaryA; // Descending order
       }),
   }));
@@ -452,7 +452,8 @@ export default async function TeamDetailPage({ params }: PageProps) {
                         c.yearAcquired,
                         year,
                         undefined,
-                        c.salaryYear ?? 2025
+                        c.salaryYear ?? 2025,
+                        c.acquisitionType as AcquisitionType
                       );
                       total += calculateCapHit(salary, c.rosterStatus);
                     }
@@ -485,7 +486,8 @@ export default async function TeamDetailPage({ params }: PageProps) {
                         c.yearAcquired,
                         year,
                         undefined,
-                        c.salaryYear ?? 2025
+                        c.salaryYear ?? 2025,
+                        c.acquisitionType as AcquisitionType
                       );
                       total += calculateCapHit(salary, c.rosterStatus);
                     }
@@ -583,7 +585,8 @@ export default async function TeamDetailPage({ params }: PageProps) {
                             contract.yearAcquired,
                             year,
                             undefined,
-                            contract.salaryYear ?? 2025
+                            contract.salaryYear ?? 2025,
+                            contract.acquisitionType as AcquisitionType
                           );
                         const capHit = calculateCapHit(
                           salary,
