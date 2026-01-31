@@ -6,7 +6,9 @@ import {
   LOYALTY_BUMP_YEAR,
   LOYALTY_BUMP_AMOUNT,
   FREE_AGENT_MINIMUM,
+  WAIVER_WIRE_TYPES,
   type RosterStatus,
+  type AcquisitionType,
 } from "@/lib/constants";
 
 const DEFAULT_SALARY_YEAR = 2025;
@@ -27,9 +29,10 @@ export function isLoyaltyBumpYear(yearAcquired: number, targetYear: number): boo
  * Takes a base salary and the year it was entered for (salaryYear).
  * Escalates from salaryYear to targetYear at the given rate.
  *
- * Free agent minimum rule: If a player was acquired in the current salary year
- * for less than $5, their salary goes up to $5 at the start of the next year
- * BEFORE the 15% escalation is applied.
+ * Waiver wire minimum rule: ONLY for waiver wire acquisitions, if a player was
+ * acquired for less than $5, their salary goes up to $5 at the start of the next
+ * year BEFORE the 15% escalation is applied. This rule does NOT apply to Rookie
+ * Draft or Free Agent Auction players.
  *
  * Year 5 loyalty bump: Players kept for 5 years get an additional $5 added
  * ON TOP of the normal 15% escalation in year 5.
@@ -43,13 +46,15 @@ export function isLoyaltyBumpYear(yearAcquired: number, targetYear: number): boo
  * @param targetYear - The year to calculate salary for
  * @param rate - Escalation rate (default 15%)
  * @param salaryYear - The year the baseSalary was entered for (default 2025 for legacy data)
+ * @param acquisitionType - How the player was acquired (affects $5 minimum rule)
  */
 export function calculateSalary(
   baseSalary: number,
   yearAcquired: number,
   targetYear: number,
   rate: number = ESCALATION_RATE,
-  salaryYear: number = DEFAULT_SALARY_YEAR
+  salaryYear: number = DEFAULT_SALARY_YEAR,
+  acquisitionType?: AcquisitionType
 ): number {
   // For the salary year, just return the base salary as entered
   // The user has already accounted for any bump in their entered amount
@@ -67,15 +72,19 @@ export function calculateSalary(
 
   let salary = baseSalary;
 
+  // Check if this acquisition type is subject to the $5 minimum rule
+  const isWaiverWire = acquisitionType && WAIVER_WIRE_TYPES.includes(acquisitionType);
+
   // Note: We do NOT add the bump for salaryYear here because the user's
   // entered salary already reflects any bump that applies to that year
 
   for (let y = 1; y <= yearsFromBase; y++) {
     const currentYear = salaryYear + y;
 
-    // Free agent minimum rule: If salary is below $5, bump it to $5
-    // before applying the escalation. This applies at the start of each new year.
-    if (salary < FREE_AGENT_MINIMUM) {
+    // Waiver wire minimum rule: ONLY for waiver wire acquisitions,
+    // if salary is below $5, bump it to $5 before applying escalation.
+    // This applies at the start of each new year.
+    if (isWaiverWire && salary < FREE_AGENT_MINIMUM) {
       salary = FREE_AGENT_MINIMUM;
     }
 
@@ -119,11 +128,12 @@ export function getSalaryProjections(
   yearAcquired: number,
   years: number[] = [2025, 2026, 2027, 2028, 2029, 2030],
   rate: number = ESCALATION_RATE,
-  salaryYear: number = DEFAULT_SALARY_YEAR
+  salaryYear: number = DEFAULT_SALARY_YEAR,
+  acquisitionType?: AcquisitionType
 ): Record<number, number> {
   const projections: Record<number, number> = {};
   for (const year of years) {
-    projections[year] = calculateSalary(baseSalary, yearAcquired, year, rate, salaryYear);
+    projections[year] = calculateSalary(baseSalary, yearAcquired, year, rate, salaryYear, acquisitionType);
   }
   return projections;
 }
@@ -173,7 +183,7 @@ export interface ContractForCap {
   salary2025: number;
   yearAcquired: number;
   rosterStatus: RosterStatus;
-  acquisitionType: string;
+  acquisitionType: AcquisitionType;
   overrideSalary?: number;
   salaryYear?: number; // The year the salary was entered for (defaults to 2025)
 }
@@ -193,7 +203,7 @@ export function calculateTeamCap(
   const playerBreakdown: PlayerCapHit[] = contracts.map((contract) => {
     const currentSalary =
       contract.overrideSalary ??
-      calculateSalary(contract.salary2025, contract.yearAcquired, targetYear, rate, contract.salaryYear);
+      calculateSalary(contract.salary2025, contract.yearAcquired, targetYear, rate, contract.salaryYear, contract.acquisitionType);
     const capHit = calculateCapHit(currentSalary, contract.rosterStatus);
 
     return {
