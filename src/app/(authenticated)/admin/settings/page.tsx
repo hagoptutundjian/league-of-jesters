@@ -1,8 +1,8 @@
 import { isCommissioner } from "@/lib/auth/server";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { leagueSettings } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { leagueSettings, draftPicks, teams } from "@/lib/db/schema";
+import { eq, and } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import {
   Card,
@@ -40,6 +40,7 @@ async function updateCurrentSeason(formData: FormData) {
   if (!commissioner) redirect("/");
 
   const year = formData.get("currentSeason") as string;
+  const newYear = parseInt(year, 10);
 
   // Upsert the current_season setting
   await db
@@ -58,7 +59,47 @@ async function updateCurrentSeason(formData: FormData) {
       },
     });
 
+  // Auto-create draft picks for N+2 year if they don't exist
+  const futureYear = newYear + 2;
+
+  // Get all teams
+  const allTeams = await db.select({ id: teams.id }).from(teams);
+
+  // Check if picks already exist for this future year
+  const existingPicks = await db
+    .select({ id: draftPicks.id })
+    .from(draftPicks)
+    .where(eq(draftPicks.year, futureYear))
+    .limit(1);
+
+  // Only create picks if none exist for that year
+  if (existingPicks.length === 0 && allTeams.length > 0) {
+    const picksToCreate: {
+      year: number;
+      round: number;
+      originalTeamId: number;
+      currentTeamId: number;
+    }[] = [];
+
+    // Create 4 rounds of picks for each team
+    for (const team of allTeams) {
+      for (let round = 1; round <= 4; round++) {
+        picksToCreate.push({
+          year: futureYear,
+          round,
+          originalTeamId: team.id,
+          currentTeamId: team.id, // Initially owned by the original team
+        });
+      }
+    }
+
+    if (picksToCreate.length > 0) {
+      await db.insert(draftPicks).values(picksToCreate);
+    }
+  }
+
   revalidatePath("/admin/settings");
+  revalidatePath("/admin/draft-picks");
   revalidatePath("/teams");
   revalidatePath("/teams/[slug]", "page");
   revalidatePath("/dashboard");
@@ -116,6 +157,7 @@ export default async function AdminSettingsPage() {
           <CardTitle>Current Season</CardTitle>
           <CardDescription>
             Set the active season year. This affects salary displays on team pages.
+            Changing to a new year will automatically create draft picks for N+2 years out.
           </CardDescription>
         </CardHeader>
         <CardContent>
