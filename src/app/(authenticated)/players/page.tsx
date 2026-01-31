@@ -3,6 +3,7 @@ import { players, contracts, teams, leagueSettings } from "@/lib/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { calculateSalary } from "@/lib/salary/engine";
 import { PlayerRegistry } from "@/components/player-registry";
+import { type AcquisitionType } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ async function getAllPlayers(leagueYear: number): Promise<PlayerWithSalary[]> {
       salary2025: contracts.salary2025,
       yearAcquired: contracts.yearAcquired,
       salaryYear: contracts.salaryYear,
+      acquisitionType: contracts.acquisitionType,
       teamName: teams.name,
       teamSlug: teams.slug,
     })
@@ -63,7 +65,8 @@ async function getAllPlayers(leagueYear: number): Promise<PlayerWithSalary[]> {
       r.yearAcquired,
       leagueYear,
       0.15,
-      r.salaryYear
+      r.salaryYear,
+      r.acquisitionType as AcquisitionType
     ),
     teamName: r.teamName,
     teamSlug: r.teamSlug,
