@@ -1,6 +1,6 @@
 import { db } from "@/lib/db";
-import { rookieDraftHistory, teams } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { rookieDraftHistory, teams, players } from "@/lib/db/schema";
+import { eq, desc, sql } from "drizzle-orm";
 import { isCommissioner } from "@/lib/auth/server";
 import {
   Card,
@@ -13,6 +13,7 @@ import { RookieDraftTable } from "@/components/rookie-draft-table";
 import { ImportRookieDraft } from "@/components/import-rookie-draft";
 import { AddDraftPick } from "@/components/add-draft-pick";
 import { DraftPicksLeaderboard } from "@/components/draft-picks-leaderboard";
+import { PositionBreakdownCard } from "@/components/position-breakdown-card";
 
 export const dynamic = "force-dynamic";
 
@@ -28,9 +29,11 @@ async function getDraftHistory() {
       teamId: rookieDraftHistory.teamId,
       teamName: teams.name,
       teamAbbreviation: teams.abbreviation,
+      position: players.position,
     })
     .from(rookieDraftHistory)
     .innerJoin(teams, eq(rookieDraftHistory.teamId, teams.id))
+    .leftJoin(players, eq(rookieDraftHistory.playerId, players.id))
     .orderBy(desc(rookieDraftHistory.year), rookieDraftHistory.round, rookieDraftHistory.pick);
 
   return results;
@@ -77,6 +80,24 @@ export default async function RookieDraftPage() {
     .sort((a, b) => a.totalPicks - b.totalPicks)
     .slice(0, 6);
 
+  // Position breakdown by round
+  const positionByRound: Record<number, Record<string, number>> = {};
+  const positionTotals: Record<string, number> = {};
+  const positionOrder = ["QB", "WR", "RB", "TE"];
+
+  for (const pick of draftHistory) {
+    const pos = pick.position || "Unknown";
+    // Total counts
+    positionTotals[pos] = (positionTotals[pos] || 0) + 1;
+    // By round
+    if (!positionByRound[pick.round]) {
+      positionByRound[pick.round] = {};
+    }
+    positionByRound[pick.round][pos] = (positionByRound[pick.round][pos] || 0) + 1;
+  }
+
+  const rounds = Object.keys(positionByRound).map(Number).sort((a, b) => a - b);
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -109,18 +130,15 @@ export default async function RookieDraftPage() {
                 ? `${Math.min(...draftYears)} - ${Math.max(...draftYears)}`
                 : "No drafts yet"}
             </p>
+            <div className="text-lg font-semibold mt-2">{draftHistory.length} picks</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Picks
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{draftHistory.length}</div>
-          </CardContent>
-        </Card>
+        <PositionBreakdownCard
+          positionTotals={positionTotals}
+          positionByRound={positionByRound}
+          rounds={rounds}
+          positionOrder={positionOrder}
+        />
         <DraftPicksLeaderboard
           title="Most Picks"
           entries={topPickers}
