@@ -157,6 +157,7 @@ async function exportPlayerRegistry() {
       teamId: contracts.teamId,
       salary2025: contracts.salary2025,
       salaryYear: contracts.salaryYear,
+      acquisitionType: contracts.acquisitionType,
       rosterStatus: contracts.rosterStatus,
     })
     .from(contracts)
@@ -185,7 +186,8 @@ async function exportPlayerRegistry() {
           p.yearAcquired,
           currentSeason,
           undefined,
-          contract.salaryYear ?? 2025
+          contract.salaryYear ?? 2025,
+          contract.acquisitionType as AcquisitionType
         )
       : null;
 
