@@ -35,7 +35,7 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
 
-  // Public routes
+  // Login page - redirect to dashboard if already logged in
   if (path === "/login") {
     if (user) {
       const url = request.nextUrl.clone();
@@ -45,15 +45,13 @@ export async function updateSession(request: NextRequest) {
     return supabaseResponse;
   }
 
-  // All other routes require auth
-  if (!user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
-  }
-
   // Admin routes require commissioner role
-  if (path.startsWith("/admin")) {
+  if (path.startsWith("/admin") || path.startsWith("/api/admin")) {
+    if (!user) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      return NextResponse.redirect(url);
+    }
     const role = user.user_metadata?.role;
     if (role !== "commissioner") {
       const url = request.nextUrl.clone();
@@ -62,5 +60,6 @@ export async function updateSession(request: NextRequest) {
     }
   }
 
+  // All other routes are public - no login required
   return supabaseResponse;
 }
