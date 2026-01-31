@@ -12,6 +12,7 @@ import {
 import { RookieDraftTable } from "@/components/rookie-draft-table";
 import { ImportRookieDraft } from "@/components/import-rookie-draft";
 import { AddDraftPick } from "@/components/add-draft-pick";
+import { DraftPicksLeaderboard } from "@/components/draft-picks-leaderboard";
 
 export const dynamic = "force-dynamic";
 
@@ -64,17 +65,17 @@ export default async function RookieDraftPage() {
     totalPicks: draftHistory.filter((d) => d.teamId === team.id).length,
   }));
 
-  // Top 3 most picks (descending)
+  // Top 6 most picks (descending)
   const topPickers = [...picksByTeam]
     .filter((t) => t.totalPicks > 0)
     .sort((a, b) => b.totalPicks - a.totalPicks)
-    .slice(0, 3);
+    .slice(0, 6);
 
-  // Bottom 3 least picks (ascending)
+  // Bottom 6 least picks (ascending)
   const bottomPickers = [...picksByTeam]
     .filter((t) => t.totalPicks > 0)
     .sort((a, b) => a.totalPicks - b.totalPicks)
-    .slice(0, 3);
+    .slice(0, 6);
 
   return (
     <div className="space-y-6">
@@ -120,52 +121,16 @@ export default async function RookieDraftPage() {
             <div className="text-2xl font-bold">{draftHistory.length}</div>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Most Picks
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {topPickers.length > 0 ? (
-              <div className="space-y-1">
-                {topPickers.map((team, index) => (
-                  <div key={team.id} className="flex items-center justify-between text-sm">
-                    <span className={index === 0 ? "font-medium" : ""}>{team.name}</span>
-                    <span className={`font-mono ${index === 0 ? "font-bold" : "text-muted-foreground"}`}>
-                      {team.totalPicks}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-2xl font-bold">-</div>
-            )}
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Least Picks
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {bottomPickers.length > 0 ? (
-              <div className="space-y-1">
-                {bottomPickers.map((team, index) => (
-                  <div key={team.id} className="flex items-center justify-between text-sm">
-                    <span className={index === 0 ? "font-medium" : ""}>{team.name}</span>
-                    <span className={`font-mono ${index === 0 ? "font-bold" : "text-muted-foreground"}`}>
-                      {team.totalPicks}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-2xl font-bold">-</div>
-            )}
-          </CardContent>
-        </Card>
+        <DraftPicksLeaderboard
+          title="Most Picks"
+          entries={topPickers}
+          type="most"
+        />
+        <DraftPicksLeaderboard
+          title="Least Picks"
+          entries={bottomPickers}
+          type="least"
+        />
       </div>
 
       {/* Draft history table with filters */}
