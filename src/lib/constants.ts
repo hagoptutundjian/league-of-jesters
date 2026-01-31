@@ -47,9 +47,14 @@ export const ACQUISITION_TYPES = [
   "auction",
   "rookie_draft",
   "free_agent",
+  "free_agent_auction",
+  "waiver_wire",
   "faab",
   "trade",
 ] as const;
+
+// Acquisition types that are subject to the $5 minimum re-rate rule at year turnover
+export const WAIVER_WIRE_TYPES: AcquisitionType[] = ["waiver_wire", "faab"];
 export type AcquisitionType = (typeof ACQUISITION_TYPES)[number];
 
 export const SALARY_YEARS = [2025, 2026, 2027, 2028, 2029, 2030] as const;
