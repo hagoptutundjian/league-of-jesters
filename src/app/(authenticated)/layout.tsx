@@ -12,7 +12,7 @@ export default async function AuthenticatedLayout({
   const user = await getUser();
 
   // Public access allowed - user may be null
-  const isCommissioner = user?.user_metadata?.role === "commissioner" ?? false;
+  const isCommissioner = (user?.user_metadata?.role ?? null) === "commissioner";
 
   // Find the user's team (if logged in)
   let teamSlug: string | undefined;
