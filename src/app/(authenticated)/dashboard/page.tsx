@@ -147,7 +147,7 @@ export default async function DashboardPage() {
               <Link href={`/teams/${team.slug}`}>
                 <div className="border-b p-3 hover:bg-accent/50 transition-colors">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-sm">{team.abbreviation}</span>
+                    <span className="font-bold text-sm truncate">{team.name}</span>
                     <Badge
                       variant={team.capSpace >= 0 ? "secondary" : "destructive"}
                       className="text-xs"
