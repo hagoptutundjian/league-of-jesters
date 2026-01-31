@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { DeleteTradeButton } from "@/components/delete-trade-button";
 import { ImportTrades } from "@/components/import-trades";
 import { ArrowRightLeft, Plus, Trophy } from "lucide-react";
+import { TradeLeaderboard } from "@/components/trade-leaderboard";
 
 export const dynamic = "force-dynamic";
 
@@ -145,7 +146,7 @@ async function getTradeLeaderboards() {
     .innerJoin(teams, eq(tradeParticipants.teamId, teams.id))
     .groupBy(tradeParticipants.teamId, teams.name, teams.abbreviation)
     .orderBy(desc(sql`COUNT(DISTINCT ${tradeParticipants.tradeId})`))
-    .limit(5);
+    .limit(12);
 
   // Current season leaderboard
   const currentSeasonLeaderboard = await db
@@ -161,7 +162,7 @@ async function getTradeLeaderboards() {
     .where(eq(trades.season, currentSeason))
     .groupBy(tradeParticipants.teamId, teams.name, teams.abbreviation)
     .orderBy(desc(sql`COUNT(DISTINCT ${tradeParticipants.tradeId})`))
-    .limit(5);
+    .limit(12);
 
   return {
     allTime: allTimeLeaderboard as TradeLeaderboardEntry[],
@@ -256,69 +257,18 @@ export default async function TradesPage() {
       {/* Leaderboards */}
       {allTrades.length > 0 && (
         <div className="grid md:grid-cols-2 gap-4">
-          {/* All-Time Leaders */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <Trophy className="h-4 w-4 text-yellow-500" />
-                All-Time Trade Leaders
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-1">
-                {leaderboards.allTime.map((entry, index) => (
-                  <div
-                    key={entry.teamId}
-                    className="flex items-center justify-between text-sm py-1"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className={`font-bold w-5 ${index === 0 ? "text-yellow-500" : index === 1 ? "text-gray-400" : index === 2 ? "text-amber-600" : "text-muted-foreground"}`}>
-                        {index + 1}.
-                      </span>
-                      <span className="font-medium">{entry.teamName}</span>
-                    </div>
-                    <Badge variant="secondary" className="text-xs">
-                      {entry.tradeCount}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Current Season Leaders */}
-          <Card>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <ArrowRightLeft className="h-4 w-4 text-blue-500" />
-                {leaderboards.currentSeasonYear} Season Leaders
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-1">
-                {leaderboards.currentSeason.length > 0 ? (
-                  leaderboards.currentSeason.map((entry, index) => (
-                    <div
-                      key={entry.teamId}
-                      className="flex items-center justify-between text-sm py-1"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className={`font-bold w-5 ${index === 0 ? "text-blue-500" : "text-muted-foreground"}`}>
-                          {index + 1}.
-                        </span>
-                        <span className="font-medium">{entry.teamName}</span>
-                      </div>
-                      <Badge variant="secondary" className="text-xs">
-                        {entry.tradeCount}
-                      </Badge>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-sm text-muted-foreground py-2">No trades this season</p>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+          <TradeLeaderboard
+            title="All-Time Trade Leaders"
+            entries={leaderboards.allTime}
+            icon="trophy"
+            accentColor="yellow"
+          />
+          <TradeLeaderboard
+            title={`${leaderboards.currentSeasonYear} Season Leaders`}
+            entries={leaderboards.currentSeason}
+            icon="arrows"
+            accentColor="blue"
+          />
         </div>
       )}
 
