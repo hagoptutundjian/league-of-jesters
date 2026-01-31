@@ -36,6 +36,8 @@ export const acquisitionTypeEnum = pgEnum("acquisition_type", [
   "auction",
   "rookie_draft",
   "free_agent",
+  "free_agent_auction",
+  "waiver_wire",
   "faab",
   "trade",
 ]);
