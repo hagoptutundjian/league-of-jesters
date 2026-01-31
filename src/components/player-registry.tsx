@@ -24,9 +24,11 @@ import {
 } from "@/components/ui/select";
 import Link from "next/link";
 import { getPositionColor } from "@/lib/position-colors";
+import { AcquisitionTypeEditor, AcquisitionTypeDisplay } from "@/components/acquisition-type-editor";
 
 interface PlayerWithSalary {
   playerId: number;
+  contractId: number;
   playerName: string;
   position: string | null;
   salary: number;
@@ -34,6 +36,7 @@ interface PlayerWithSalary {
   teamSlug: string;
   yearAcquired: number;
   salaryYear: number;
+  acquisitionType: string;
 }
 
 interface Team {
@@ -45,9 +48,10 @@ interface PlayerRegistryProps {
   players: PlayerWithSalary[];
   teams: Team[];
   leagueYear: number;
+  isCommissioner?: boolean;
 }
 
-export function PlayerRegistry({ players, teams, leagueYear }: PlayerRegistryProps) {
+export function PlayerRegistry({ players, teams, leagueYear, isCommissioner = false }: PlayerRegistryProps) {
   const [selectedTeam, setSelectedTeam] = useState<string>("all");
 
   const filteredPlayersByPosition = useMemo(() => {
@@ -135,6 +139,7 @@ export function PlayerRegistry({ players, teams, leagueYear }: PlayerRegistryPro
                         <TableHead className="w-10">#</TableHead>
                         <TableHead>Player</TableHead>
                         <TableHead>Manager</TableHead>
+                        <TableHead className="text-center">Acq Type</TableHead>
                         <TableHead className="text-right">Salary</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -155,6 +160,16 @@ export function PlayerRegistry({ players, teams, leagueYear }: PlayerRegistryPro
                               {player.teamName}
                             </Link>
                           </TableCell>
+                          <TableCell className="text-center">
+                            {isCommissioner ? (
+                              <AcquisitionTypeEditor
+                                contractId={player.contractId}
+                                currentType={player.acquisitionType}
+                              />
+                            ) : (
+                              <AcquisitionTypeDisplay type={player.acquisitionType} />
+                            )}
+                          </TableCell>
                           <TableCell className="text-right font-mono">
                             ${player.salary}
                           </TableCell>
@@ -163,7 +178,7 @@ export function PlayerRegistry({ players, teams, leagueYear }: PlayerRegistryPro
                       {positionPlayers.length === 0 && (
                         <TableRow>
                           <TableCell
-                            colSpan={4}
+                            colSpan={5}
                             className="py-4 text-center text-muted-foreground"
                           >
                             No players found
