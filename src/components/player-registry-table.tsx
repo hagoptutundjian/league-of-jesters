@@ -24,7 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { Search, Trash2 } from "lucide-react";
+import { Search, Trash2, Check, X } from "lucide-react";
 import { EditMasterPlayer } from "@/components/edit-master-player";
 import { getPositionColor } from "@/lib/position-colors";
 
@@ -35,15 +35,22 @@ interface Player {
   yearAcquired: number;
   isActive: boolean;
   currentTeam: string | null;
+  contractId: number | null;
+  salary: number | null;
+  salaryYear: number | null;
 }
 
 interface PlayerRegistryTableProps {
   players: Player[];
+  currentSeason: number;
 }
 
-export function PlayerRegistryTable({ players }: PlayerRegistryTableProps) {
+export function PlayerRegistryTable({ players, currentSeason }: PlayerRegistryTableProps) {
   const [search, setSearch] = useState("");
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [editingSalaryId, setEditingSalaryId] = useState<number | null>(null);
+  const [salaryInput, setSalaryInput] = useState("");
+  const [savingSalary, setSavingSalary] = useState(false);
   const router = useRouter();
 
   // Filter players by search term (name)
@@ -75,6 +82,57 @@ export function PlayerRegistryTable({ players }: PlayerRegistryTableProps) {
     }
   };
 
+  const startEditingSalary = (player: Player) => {
+    setEditingSalaryId(player.id);
+    setSalaryInput(player.salary?.toString() || "");
+  };
+
+  const cancelEditingSalary = () => {
+    setEditingSalaryId(null);
+    setSalaryInput("");
+  };
+
+  const saveSalary = async (player: Player) => {
+    if (!player.contractId) {
+      toast.error("Player has no active contract");
+      return;
+    }
+
+    const newSalary = parseFloat(salaryInput);
+    if (isNaN(newSalary) || newSalary < 0) {
+      toast.error("Please enter a valid salary");
+      return;
+    }
+
+    setSavingSalary(true);
+    try {
+      const res = await fetch("/api/admin/player-registry/salary", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contractId: player.contractId,
+          salary: newSalary,
+          salaryYear: currentSeason,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || "Failed to update salary");
+        return;
+      }
+
+      toast.success(`${player.name}'s salary updated to $${newSalary}`);
+      setEditingSalaryId(null);
+      setSalaryInput("");
+      router.refresh();
+    } catch {
+      toast.error("Failed to update salary");
+    } finally {
+      setSavingSalary(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Search */}
@@ -103,6 +161,7 @@ export function PlayerRegistryTable({ players }: PlayerRegistryTableProps) {
               <TableHead>Player</TableHead>
               <TableHead>Pos</TableHead>
               <TableHead className="text-center">Year Acquired</TableHead>
+              <TableHead className="text-right">Salary ({currentSeason})</TableHead>
               <TableHead>Current Team</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -124,6 +183,54 @@ export function PlayerRegistryTable({ players }: PlayerRegistryTableProps) {
                 </TableCell>
                 <TableCell className="text-center font-mono">
                   {p.yearAcquired}
+                </TableCell>
+                <TableCell className="text-right">
+                  {p.contractId ? (
+                    editingSalaryId === p.id ? (
+                      <div className="flex items-center justify-end gap-1">
+                        <span className="text-muted-foreground">$</span>
+                        <Input
+                          type="number"
+                          value={salaryInput}
+                          onChange={(e) => setSalaryInput(e.target.value)}
+                          className="w-20 h-7 text-right text-sm"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") saveSalary(p);
+                            if (e.key === "Escape") cancelEditingSalary();
+                          }}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-green-600 hover:text-green-700"
+                          onClick={() => saveSalary(p)}
+                          disabled={savingSalary}
+                        >
+                          <Check className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                          onClick={cancelEditingSalary}
+                          disabled={savingSalary}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEditingSalary(p)}
+                        className="font-mono hover:underline hover:text-primary cursor-pointer"
+                        title="Click to edit salary"
+                      >
+                        ${p.salary}
+                      </button>
+                    )
+                  ) : (
+                    <span className="text-muted-foreground text-xs">—</span>
+                  )}
                 </TableCell>
                 <TableCell>
                   {p.currentTeam ? (
@@ -180,7 +287,7 @@ export function PlayerRegistryTable({ players }: PlayerRegistryTableProps) {
             {filteredPlayers.length === 0 && (
               <TableRow>
                 <TableCell
-                  colSpan={5}
+                  colSpan={6}
                   className="py-8 text-center text-muted-foreground"
                 >
                   {search ? "No players match your search" : "No players in the master registry yet"}
