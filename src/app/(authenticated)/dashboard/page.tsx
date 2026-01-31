@@ -227,7 +227,7 @@ export default async function DashboardPage() {
                             >
                               <span className={`truncate pr-2 ${
                                 player.rosterStatus === "active"
-                                  ? "text-blue-700 dark:text-blue-400 font-medium"
+                                  ? "text-gray-900 dark:text-gray-100 font-medium"
                                   : "text-gray-400 dark:text-gray-500"
                               }`}>
                                 {player.name}
@@ -240,7 +240,7 @@ export default async function DashboardPage() {
                               </span>
                               <span className={`font-mono flex-shrink-0 ${
                                 player.rosterStatus === "active"
-                                  ? "text-blue-600 dark:text-blue-400"
+                                  ? "text-gray-800 dark:text-gray-200"
                                   : "text-gray-400 dark:text-gray-500"
                               }`}>
                                 ${player.salary}
