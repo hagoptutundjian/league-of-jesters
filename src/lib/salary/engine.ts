@@ -5,6 +5,7 @@ import {
   IR_CAP_PCT,
   LOYALTY_BUMP_YEAR,
   LOYALTY_BUMP_AMOUNT,
+  FREE_AGENT_MINIMUM,
   type RosterStatus,
 } from "@/lib/constants";
 
@@ -25,6 +26,10 @@ export function isLoyaltyBumpYear(yearAcquired: number, targetYear: number): boo
  * Core salary calculation.
  * Takes a base salary and the year it was entered for (salaryYear).
  * Escalates from salaryYear to targetYear at the given rate.
+ *
+ * Free agent minimum rule: If a player was acquired in the current salary year
+ * for less than $5, their salary goes up to $5 at the start of the next year
+ * BEFORE the 15% escalation is applied.
  *
  * Year 5 loyalty bump: Players kept for 5 years get an additional $5 added
  * ON TOP of the normal 15% escalation in year 5.
@@ -67,9 +72,18 @@ export function calculateSalary(
 
   for (let y = 1; y <= yearsFromBase; y++) {
     const currentYear = salaryYear + y;
+
+    // Free agent minimum rule: If salary is below $5, bump it to $5
+    // before applying the escalation. This applies at the start of each new year.
+    if (salary < FREE_AGENT_MINIMUM) {
+      salary = FREE_AGENT_MINIMUM;
+    }
+
+    // Apply 15% escalation
     salary = salary * (1 + rate);
     // Round up after each year's escalation
     salary = Math.ceil(salary);
+
     // Check if this year is year 5 of the contract (only for future years)
     if (isLoyaltyBumpYear(yearAcquired, currentYear)) {
       salary += LOYALTY_BUMP_AMOUNT;
