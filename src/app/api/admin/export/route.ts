@@ -13,6 +13,7 @@ import {
 import { eq, desc } from "drizzle-orm";
 import { getUser, isCommissioner } from "@/lib/auth/server";
 import { calculateSalary } from "@/lib/salary/engine";
+import { type AcquisitionType } from "@/lib/constants";
 import { getDraftPickCapValue } from "@/lib/salary/rookie-scale";
 import { getCurrentSeason } from "@/lib/settings";
 
@@ -76,7 +77,8 @@ async function exportRosters() {
         c.yearAcquired,
         year,
         undefined,
-        c.salaryYear ?? 2025
+        c.salaryYear ?? 2025,
+        c.acquisitionType as AcquisitionType
       )
     );
 
